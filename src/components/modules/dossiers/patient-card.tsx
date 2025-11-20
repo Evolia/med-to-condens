@@ -1,0 +1,303 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Edit,
+  Trash2,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  FileText,
+  Sparkles,
+  ClipboardList,
+} from "lucide-react";
+import { Button } from "@/components/ui";
+import {
+  usePatient,
+  useObservations,
+  useDeletePatient,
+  useGenerateSummary,
+  useAnalyzeMail,
+} from "@/hooks";
+import { calculateAge, formatDate } from "@/lib/date-utils";
+import { useTabsStore } from "@/stores/tabs-store";
+import { PatientForm } from "./patient-form";
+import { TypeObservation } from "@/types";
+
+interface PatientCardProps {
+  patientId: string;
+}
+
+export function PatientCard({ patientId }: PatientCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [mailContent, setMailContent] = useState("");
+  const [mailAnalysis, setMailAnalysis] = useState<string | null>(null);
+
+  const { data: patient, isLoading } = usePatient(patientId);
+  const { data: observations } = useObservations({ patientId });
+  const deletePatient = useDeletePatient();
+  const generateSummary = useGenerateSummary();
+  const analyzeMail = useAnalyzeMail();
+  const { removeTab, updateTab } = useTabsStore();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!patient) {
+    return (
+      <div className="flex h-full items-center justify-center text-gray-500">
+        Patient non trouve
+      </div>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <PatientForm
+        patient={patient}
+        onSuccess={(updatedPatient) => {
+          setIsEditing(false);
+          updateTab(`patient-${patientId}`, {
+            title: `${updatedPatient.nom} ${updatedPatient.prenom}`,
+          });
+        }}
+        onCancel={() => setIsEditing(false)}
+      />
+    );
+  }
+
+  const handleDelete = async () => {
+    if (
+      confirm(
+        `Voulez-vous vraiment supprimer le dossier de ${patient.nom} ${patient.prenom} ?`
+      )
+    ) {
+      await deletePatient.mutateAsync(patientId);
+      removeTab(`patient-${patientId}`);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    try {
+      await generateSummary.mutateAsync(patientId);
+    } catch (error) {
+      alert("Erreur lors de la generation du resume");
+    }
+  };
+
+  const handleAnalyzeMail = async () => {
+    if (!mailContent.trim()) return;
+
+    try {
+      const result = await analyzeMail.mutateAsync({
+        patientId,
+        mailContent,
+      });
+      setMailAnalysis(result.analysis);
+      setMailContent("");
+    } catch (error) {
+      alert("Erreur lors de l'analyse du mail");
+    }
+  };
+
+  const getObservationTypeLabel = (type: TypeObservation) => {
+    const labels: Record<TypeObservation, string> = {
+      [TypeObservation.CONSULTATION]: "Consultation",
+      [TypeObservation.SUIVI]: "Suivi",
+      [TypeObservation.URGENCE]: "Urgence",
+      [TypeObservation.TELEPHONE]: "Telephone",
+      [TypeObservation.RESULTATS]: "Resultats",
+      [TypeObservation.COURRIER]: "Courrier",
+      [TypeObservation.REUNION]: "Reunion",
+      [TypeObservation.NOTE]: "Note",
+    };
+    return labels[type] || type;
+  };
+
+  return (
+    <div className="h-full overflow-auto">
+      {/* Header */}
+      <div className="border-b border-gray-200 bg-white p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {patient.nom.toUpperCase()} {patient.prenom}
+            </h2>
+            {patient.date_naissance && (
+              <p className="mt-1 text-gray-600">
+                Ne(e) le {formatDate(patient.date_naissance)} •{" "}
+                {calculateAge(patient.date_naissance)}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setIsEditing(true)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Modifier
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDelete}
+              isLoading={deletePatient.isPending}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-6 p-6">
+        {/* Left column - Contact info */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-900">Coordonnees</h3>
+
+          {patient.telephone && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Phone className="h-4 w-4" />
+              {patient.telephone}
+            </div>
+          )}
+
+          {patient.email && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Mail className="h-4 w-4" />
+              {patient.email}
+            </div>
+          )}
+
+          {patient.adresse && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <MapPin className="h-4 w-4" />
+              {patient.adresse}
+            </div>
+          )}
+
+          {patient.secteur && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Calendar className="h-4 w-4" />
+              Secteur: {patient.secteur}
+            </div>
+          )}
+
+          {patient.notes && (
+            <div className="mt-4">
+              <h4 className="mb-2 text-sm font-medium text-gray-700">Notes</h4>
+              <p className="whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-sm text-gray-600">
+                {patient.notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Middle column - AI Summary */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">Resume IA</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGenerateSummary}
+              isLoading={generateSummary.isPending}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Generer
+            </Button>
+          </div>
+
+          {patient.resume_ia ? (
+            <div className="rounded-md bg-blue-50 p-4 text-sm text-gray-700 whitespace-pre-wrap">
+              {patient.resume_ia}
+            </div>
+          ) : (
+            <div className="rounded-md border-2 border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+              Aucun resume genere.
+              <br />
+              Cliquez sur "Generer" pour creer un resume automatique des
+              observations.
+            </div>
+          )}
+
+          {/* Mail import section */}
+          <div className="mt-6">
+            <h3 className="mb-2 font-semibold text-gray-900">Importer un mail</h3>
+            <textarea
+              value={mailContent}
+              onChange={(e) => setMailContent(e.target.value)}
+              placeholder="Collez le contenu d'un mail ici pour l'analyser..."
+              rows={4}
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-2"
+              onClick={handleAnalyzeMail}
+              isLoading={analyzeMail.isPending}
+              disabled={!mailContent.trim()}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Analyser et integrer
+            </Button>
+
+            {mailAnalysis && (
+              <div className="mt-3 rounded-md bg-green-50 p-3 text-sm text-gray-700 whitespace-pre-wrap">
+                <p className="font-medium text-green-800 mb-2">Analyse du mail:</p>
+                {mailAnalysis}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right column - Observations history */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">
+              Historique des observations
+            </h3>
+            <span className="text-sm text-gray-500">
+              {observations?.length || 0} observation
+              {(observations?.length || 0) !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          {observations && observations.length > 0 ? (
+            <div className="max-h-[400px] space-y-2 overflow-auto">
+              {observations.map((obs) => (
+                <div
+                  key={obs.id}
+                  className="rounded-md border border-gray-200 p-3 text-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900">
+                      {formatDate(obs.date)}
+                    </span>
+                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                      {getObservationTypeLabel(obs.type_observation)}
+                    </span>
+                  </div>
+                  {obs.contenu && (
+                    <p className="mt-1 line-clamp-2 text-gray-600">
+                      {obs.contenu}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border-2 border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
+              <ClipboardList className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+              Aucune observation enregistree
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

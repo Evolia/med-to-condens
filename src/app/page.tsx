@@ -1,10 +1,31 @@
+"use client";
+
+import { AppLayout } from "@/components/layout";
+import { useAppModule } from "@/components/layout/use-app-module";
+import { DossiersModule } from "@/components/modules/dossiers";
+import { ObservationsModule } from "@/components/modules/observations";
+import { TodosModule } from "@/components/modules/todos";
+import { ModuleType } from "@/types";
+
+function ModuleContent() {
+  const { activeModule } = useAppModule();
+
+  switch (activeModule) {
+    case ModuleType.DOSSIERS:
+      return <DossiersModule />;
+    case ModuleType.OBSERVATIONS:
+      return <ObservationsModule />;
+    case ModuleType.TODOS:
+      return <TodosModule />;
+    default:
+      return <DossiersModule />;
+  }
+}
+
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-4">MedCondens</h1>
-      <p className="text-lg text-gray-600">
-        Application de condensation de données médicales
-      </p>
-    </main>
+    <AppLayout>
+      <ModuleContent />
+    </AppLayout>
   );
 }
