@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       .join("\n");
 
     // Generate summary with Gemini
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Tu es un assistant medical. Resume en 3-5 points cles les observations suivantes pour cet enfant.
 Focus sur: diagnostics, traitements en cours, points de vigilance, evolution.

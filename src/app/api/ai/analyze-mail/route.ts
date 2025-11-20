@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Analyze mail with Gemini
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `Tu es un assistant medical. Analyse ce mail et extrait les informations pertinentes.
 

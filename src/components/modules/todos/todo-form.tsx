@@ -13,18 +13,21 @@ interface TodoFormProps {
 }
 
 const typeOptions = [
-  { value: "rappel", label: "Rappel" },
-  { value: "courrier", label: "Courrier" },
-  { value: "rdv", label: "RDV" },
-  { value: "avis", label: "Avis" },
-  { value: "autre", label: "Autre" },
+  { value: TypeTodo.RAPPEL, label: "Rappel" },
+  { value: TypeTodo.PRESCRIPTION, label: "Prescription" },
+  { value: TypeTodo.EXAMEN, label: "Examen" },
+  { value: TypeTodo.COURRIER, label: "Courrier" },
+  { value: TypeTodo.RDV, label: "RDV" },
+  { value: TypeTodo.AVIS, label: "Avis" },
+  { value: TypeTodo.ADMINISTRATIF, label: "Administratif" },
+  { value: TypeTodo.AUTRE, label: "Autre" },
 ];
 
 const urgenceOptions = [
-  { value: "basse", label: "Basse" },
-  { value: "normale", label: "Normale" },
-  { value: "haute", label: "Haute" },
-  { value: "critique", label: "Critique" },
+  { value: UrgenceTodo.BASSE, label: "Basse" },
+  { value: UrgenceTodo.NORMALE, label: "Normale" },
+  { value: UrgenceTodo.HAUTE, label: "Haute" },
+  { value: UrgenceTodo.CRITIQUE, label: "Critique" },
 ];
 
 export function TodoForm({
@@ -34,8 +37,8 @@ export function TodoForm({
 }: TodoFormProps) {
   const [selectedPatientId, setSelectedPatientId] = useState(patientId || "");
   const [contenu, setContenu] = useState("");
-  const [typeTodo, setTypeTodo] = useState<TypeTodo>("rappel");
-  const [urgence, setUrgence] = useState<UrgenceTodo>("normale");
+  const [typeTodo, setTypeTodo] = useState<TypeTodo>(TypeTodo.RAPPEL);
+  const [urgence, setUrgence] = useState<UrgenceTodo>(UrgenceTodo.NORMALE);
   const [dateEcheance, setDateEcheance] = useState("");
 
   const createTodo = useCreateTodo();
