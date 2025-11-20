@@ -6,6 +6,7 @@ export enum TypeObservation {
   TELEPHONE = "telephone",
   RESULTATS = "resultats",
   COURRIER = "courrier",
+  REUNION = "reunion",
   NOTE = "note",
 }
 
@@ -14,6 +15,8 @@ export enum TypeTodo {
   PRESCRIPTION = "prescription",
   EXAMEN = "examen",
   COURRIER = "courrier",
+  RDV = "rdv",
+  AVIS = "avis",
   ADMINISTRATIF = "administratif",
   AUTRE = "autre",
 }
@@ -26,54 +29,62 @@ export enum UrgenceTodo {
 }
 
 export enum ModuleType {
-  PATIENTS = "patients",
-  CONSULTATIONS = "consultations",
+  DOSSIERS = "dossiers",
+  OBSERVATIONS = "observations",
   TODOS = "todos",
-  AGENDA = "agenda",
-  STATISTIQUES = "statistiques",
 }
 
 // Main types
 export interface Patient {
   id: string;
+  user_id?: string;
   nom: string;
   prenom: string;
-  sexe: "M" | "F" | "autre";
-  date_naissance: string;
+  sexe?: "M" | "F" | "autre";
+  date_naissance?: string;
   telephone?: string;
   email?: string;
   adresse?: string;
-  secteur?: number;
+  secteur?: string;
   notes?: string;
   resume_ia?: string;
+  resume_updated_at?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface PatientWithObservations extends Patient {
+  observations?: Observation[];
+  todos?: Todo[];
 }
 
 export interface Consultation {
   id: string;
+  user_id?: string;
   date: string;
-  type: string;
+  type?: string;
   titre?: string;
-  patient_id?: string;
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface Observation {
   id: string;
+  user_id?: string;
   patient_id: string;
   consultation_id?: string;
   date: string;
   type_observation: TypeObservation;
-  contenu: string;
+  contenu?: string;
   age_patient_jours?: number;
   created_at?: string;
   updated_at?: string;
+  // Relations (populated on fetch)
+  patient?: Patient;
 }
 
 export interface Todo {
   id: string;
+  user_id?: string;
   observation_id?: string;
   patient_id: string;
   contenu: string;
@@ -85,6 +96,9 @@ export interface Todo {
   completed_at?: string;
   created_at?: string;
   updated_at?: string;
+  // Relations (populated on fetch)
+  patient?: Patient;
+  observation?: Observation;
 }
 
 // Tab system
