@@ -88,6 +88,8 @@ export function useCreatePatient() {
 
   return useMutation({
     mutationFn: async (patient: Omit<Patient, "id" | "created_at" | "updated_at" | "user_id">) => {
+      console.log("Creating patient with data:", patient);
+
       const { data, error } = await supabase
         .from("patients")
         .insert({
@@ -97,7 +99,10 @@ export function useCreatePatient() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details:", error);
+        throw new Error(`${error.message}${error.hint ? ` (Hint: ${error.hint})` : ''}${error.details ? ` - ${error.details}` : ''}`);
+      }
       return data as Patient;
     },
     onSuccess: () => {
@@ -115,6 +120,8 @@ export function useUpdatePatient() {
       id,
       ...updates
     }: Partial<Patient> & { id: string }) => {
+      console.log("Updating patient with data:", updates);
+
       const { data, error } = await supabase
         .from("patients")
         .update(updates)
@@ -122,7 +129,10 @@ export function useUpdatePatient() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details:", error);
+        throw new Error(`${error.message}${error.hint ? ` (Hint: ${error.hint})` : ''}${error.details ? ` - ${error.details}` : ''}`);
+      }
       return data as Patient;
     },
     onSuccess: (data) => {
