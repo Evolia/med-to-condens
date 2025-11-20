@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "./use-auth";
@@ -83,7 +83,7 @@ export function useRealtimeSync() {
 }
 
 // Hook to use in the app layout to enable realtime for the entire app
-export function RealtimeProvider({ children }: { children: React.ReactNode }) {
+export function RealtimeProvider({ children }: { children: ReactNode }): ReactNode {
   useRealtimeSync();
-  return <>{children}</>;
+  return children;
 }

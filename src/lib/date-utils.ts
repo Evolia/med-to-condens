@@ -43,10 +43,15 @@ export function calculateAge(birthDate: string | Date): string {
   }
 }
 
-export function calculateAgeInDays(birthDate: string | Date): number {
+export function calculateAgeInDays(birthDate: string | Date, atDate?: string | Date): number {
   const parsedDate = typeof birthDate === "string" ? parseISO(birthDate) : birthDate;
   if (!isValid(parsedDate)) return 0;
-  return differenceInDays(new Date(), parsedDate);
+
+  const referenceDate = atDate
+    ? (typeof atDate === "string" ? parseISO(atDate) : atDate)
+    : new Date();
+
+  return differenceInDays(referenceDate, parsedDate);
 }
 
 export function formatAgeAtDate(birthDate: string | Date, atDate: string | Date): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, Plus, User } from "lucide-react";
 import { Input, Button } from "@/components/ui";
 import { usePatients } from "@/hooks";
@@ -8,21 +8,44 @@ import { Patient, ModuleType } from "@/types";
 import { useTabsStore } from "@/stores/tabs-store";
 import { calculateAge } from "@/lib/date-utils";
 
+// Normalize string: remove accents and convert to lowercase
+function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export function PatientList() {
   const [searchTerm, setSearchTerm] = useState("");
   const { data: patients, isLoading } = usePatients();
-  const { addTab } = useTabsStore();
+  const { addTab, tabs } = useTabsStore();
+
+  // Ensure the main list tab exists on mount
+  useEffect(() => {
+    const hasListTab = tabs.some(
+      (tab) => tab.module === ModuleType.DOSSIERS && tab.type === "list"
+    );
+    if (!hasListTab) {
+      addTab({
+        id: "dossiers-list",
+        type: "list",
+        module: ModuleType.DOSSIERS,
+        title: "Liste patients",
+      });
+    }
+  }, [tabs, addTab]);
 
   // Filter patients locally for instant feedback
   const filteredPatients = useMemo(() => {
     if (!patients) return [];
     if (!searchTerm.trim()) return patients;
 
-    const term = searchTerm.toLowerCase().trim();
+    const term = normalizeString(searchTerm.trim());
 
     return patients.filter((patient) => {
-      const nom = patient.nom.toLowerCase();
-      const prenom = patient.prenom.toLowerCase();
+      const nom = normalizeString(patient.nom);
+      const prenom = normalizeString(patient.prenom);
       const fullName = `${nom} ${prenom}`;
       const reverseName = `${prenom} ${nom}`;
 
@@ -92,7 +115,7 @@ export function PatientList() {
           <div className="flex h-full flex-col items-center justify-center text-gray-500">
             <User className="mb-2 h-12 w-12 text-gray-300" />
             {searchTerm ? (
-              <p>Aucun patient trouve pour "{searchTerm}"</p>
+              <p>Aucun patient trouve pour &quot;{searchTerm}&quot;</p>
             ) : (
               <p>Aucun patient enregistre</p>
             )}

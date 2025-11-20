@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Calendar, List } from "lucide-react";
 import { Button } from "@/components/ui";
 import {
@@ -20,11 +20,26 @@ export function ObservationsModule() {
   const [view, setView] = useState<ViewType>("today");
   const [showNewObservation, setShowNewObservation] = useState(false);
 
-  const { tabs, activeTabId, addTab, removeTab } = useTabsStore();
+  const { tabs, activeTabId, addTab } = useTabsStore();
   const { data: todayObservations, isLoading: loadingToday } =
     useTodayObservations();
   const { data: allObservations, isLoading: loadingAll } = useObservations();
   const createConsultation = useCreateConsultation();
+
+  // Ensure the main list tab exists on mount
+  useEffect(() => {
+    const hasListTab = tabs.some(
+      (tab) => tab.module === ModuleType.OBSERVATIONS && tab.type === "list"
+    );
+    if (!hasListTab) {
+      addTab({
+        id: "observations-list",
+        type: "list",
+        module: ModuleType.OBSERVATIONS,
+        title: "Observations",
+      });
+    }
+  }, [tabs, addTab]);
 
   // Check if we have an active tab for this module
   const activeTab = tabs.find(

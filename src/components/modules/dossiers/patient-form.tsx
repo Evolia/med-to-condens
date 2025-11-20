@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Save, X } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, SecteurInput } from "@/components/ui";
 import { useCreatePatient, useUpdatePatient } from "@/hooks";
 import { Patient } from "@/types";
 import { useTabsStore } from "@/stores/tabs-store";
@@ -130,11 +130,9 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
         onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
       />
 
-      <Input
-        label="Secteur"
+      <SecteurInput
         value={formData.secteur}
-        onChange={(e) => setFormData({ ...formData, secteur: e.target.value })}
-        placeholder="Ex: Maternite, Neonat, Pediatrie..."
+        onChange={(value) => setFormData({ ...formData, secteur: value })}
       />
 
       <div>
