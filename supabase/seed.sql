@@ -128,8 +128,8 @@ BEGIN
     INSERT INTO todos (user_id, patient_id, contenu, date_echeance, urgence, type_todo)
     VALUES
         (v_user_id, v_patient_1, 'Rappel bilan allergo - Verifier resultats prick tests prevus', CURRENT_DATE + INTERVAL '14 days', 'normale', 'rappel'),
-        (v_user_id, v_patient_4, 'Controle eczema J15 - Evaluer efficacite dermocorticoides', CURRENT_DATE + INTERVAL '8 days', 'urgente', 'rdv'),
-        (v_user_id, v_patient_5, 'Courrier ecole - Rediger certificat pour amenagements', CURRENT_DATE + INTERVAL '7 days', 'urgente', 'courrier'),
+        (v_user_id, v_patient_4, 'Controle eczema J15 - Evaluer efficacite dermocorticoides', CURRENT_DATE + INTERVAL '8 days', 'haute', 'rdv'),
+        (v_user_id, v_patient_5, 'Courrier ecole - Rediger certificat pour amenagements', CURRENT_DATE + INTERVAL '7 days', 'haute', 'courrier'),
         (v_user_id, v_patient_2, 'RDV bilan 6 ans - Programmer consultation bilan', CURRENT_DATE + INTERVAL '60 days', 'basse', 'rdv');
 
     RAISE NOTICE 'Seed data created successfully!';
