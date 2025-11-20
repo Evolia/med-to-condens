@@ -14,6 +14,7 @@ import { ModuleType } from "@/types";
 import { ObservationTable } from "./observation-table";
 import { ObservationForm } from "./observation-form";
 import { ConsultationView } from "./consultation-view";
+import { ConsultationTable } from "./consultation-table";
 
 type ViewType = "today" | "all" | "group";
 
@@ -160,44 +161,7 @@ export function ObservationsModule() {
             onCancel={() => setShowNewObservation(false)}
           />
         ) : view === "group" ? (
-          <div className="p-4">
-            {consultations && consultations.length > 0 ? (
-              <div className="grid gap-3">
-                {consultations.map((consultation) => (
-                  <button
-                    key={consultation.id}
-                    onClick={() =>
-                      handleConsultationClick(
-                        consultation.id,
-                        consultation.titre || `Consultation du ${new Date(consultation.date).toLocaleDateString("fr-FR")}`
-                      )
-                    }
-                    className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 text-left transition-all hover:border-blue-300 hover:shadow-md"
-                  >
-                    <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
-                        {consultation.titre || `Consultation du ${new Date(consultation.date).toLocaleDateString("fr-FR")}`}
-                      </h3>
-                      <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(consultation.date).toLocaleDateString("fr-FR")}
-                        </span>
-                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
-                          {consultation.type || "consultation"}
-                        </span>
-                      </div>
-                    </div>
-                    <FolderOpen className="h-5 w-5 text-gray-400" />
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-64 items-center justify-center text-gray-500">
-                Aucune consultation ou reunion
-              </div>
-            )}
-          </div>
+          <ConsultationTable consultations={consultations || []} />
         ) : (
           <ObservationTable observations={observations || []} showPatient />
         )}
@@ -209,3 +173,4 @@ export function ObservationsModule() {
 export { ObservationTable } from "./observation-table";
 export { ObservationForm } from "./observation-form";
 export { ConsultationView } from "./consultation-view";
+export { ConsultationTable } from "./consultation-table";

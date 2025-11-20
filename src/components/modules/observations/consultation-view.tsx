@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check } from "lucide-react";
+import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import {
   useConsultation,
@@ -46,7 +46,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [creatingPatient, setCreatingPatient] = useState<string | null>(null);
 
   // Inline editing states
-  const [editingField, setEditingField] = useState<"titre" | "type" | "date" | null>(null);
+  const [editingField, setEditingField] = useState<"titre" | "type" | "date" | "tags" | null>(null);
   const [editValue, setEditValue] = useState("");
   const editingContainerRef = useRef<HTMLDivElement>(null);
 
@@ -94,13 +94,15 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     );
   }
 
-  const handleStartEdit = (field: "titre" | "type" | "date") => {
+  const handleStartEdit = (field: "titre" | "type" | "date" | "tags") => {
     if (field === "titre") {
       setEditValue(consultation.titre || "");
     } else if (field === "type") {
       setEditValue(consultation.type || "consultation");
     } else if (field === "date") {
       setEditValue(consultation.date);
+    } else if (field === "tags") {
+      setEditValue(consultation.tags || "");
     }
     setEditingField(field);
   };
@@ -416,6 +418,52 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
                   <Calendar className="h-3 w-3" />
                   {formatDate(consultation.date)}
                 </span>
+              )}
+            </div>
+
+            {/* Tags */}
+            <div className="mt-2">
+              {editingField === "tags" ? (
+                <div ref={editingContainerRef} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    placeholder="Separez par des virgules"
+                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveField();
+                      if (e.key === "Escape") handleCancelEdit();
+                    }}
+                  />
+                  <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : consultation.tags ? (
+                <div
+                  onClick={() => handleStartEdit("tags")}
+                  className="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1"
+                  title="Cliquez pour modifier"
+                >
+                  {consultation.tags.split(",").map((tag, i) => (
+                    <span key={i} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                      {tag.trim()}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleStartEdit("tags")}
+                  className="text-gray-400 hover:text-gray-600 text-xs flex items-center gap-1"
+                >
+                  <Tag className="h-3 w-3" />
+                  Ajouter des tags
+                </button>
               )}
             </div>
           </div>

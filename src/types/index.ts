@@ -64,6 +64,7 @@ export interface Consultation {
   date: string;
   type?: string;
   titre?: string;
+  tags?: string;
   created_at?: string;
 }
 
