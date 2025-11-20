@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { Search, Plus, User, List, Table, ArrowUpDown, Trash2 } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Search, Plus, User, List, Table, ArrowUpDown, Trash2, Filter, X } from "lucide-react";
 import { Input, Button } from "@/components/ui";
 import { usePatients, useDeletePatient } from "@/hooks";
 import { Patient, ModuleType } from "@/types";
@@ -25,6 +25,10 @@ export function PatientList() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [sortField, setSortField] = useState<SortField>("nom");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [showSecteurFilter, setShowSecteurFilter] = useState(false);
+  const [secteurFilterValue, setSecteurFilterValue] = useState("");
+  const secteurFilterRef = useRef<HTMLDivElement>(null);
+
   const { data: patients, isLoading } = usePatients();
   const deletePatient = useDeletePatient();
   const { addTab, tabs } = useTabsStore();
@@ -44,11 +48,28 @@ export function PatientList() {
     }
   }, [tabs, addTab]);
 
+  // Close secteur filter on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        secteurFilterRef.current &&
+        !secteurFilterRef.current.contains(event.target as Node)
+      ) {
+        setShowSecteurFilter(false);
+      }
+    };
+
+    if (showSecteurFilter) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showSecteurFilter]);
+
   // Filter and sort patients locally for instant feedback
   const filteredPatients = useMemo(() => {
     if (!patients) return [];
 
-    // First filter
+    // First filter by search term
     let result = patients;
     if (searchTerm.trim()) {
       const term = normalizeString(searchTerm.trim());
@@ -63,6 +84,26 @@ export function PatientList() {
           prenom.includes(term) ||
           fullName.includes(term) ||
           reverseName.includes(term)
+        );
+      });
+    }
+
+    // Then filter by secteur tags
+    if (secteurFilterValue.trim()) {
+      const filterTags = secteurFilterValue
+        .split(",")
+        .map((t) => normalizeString(t.trim()))
+        .filter((t) => t);
+
+      result = result.filter((patient) => {
+        if (!patient.secteur) return false;
+        const patientTags = patient.secteur
+          .split(",")
+          .map((t) => normalizeString(t.trim()));
+
+        // Patient must have at least one of the filter tags
+        return filterTags.some((filterTag) =>
+          patientTags.some((patientTag) => patientTag.includes(filterTag))
         );
       });
     }
@@ -97,7 +138,7 @@ export function PatientList() {
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [patients, searchTerm, sortField, sortDirection]);
+  }, [patients, searchTerm, secteurFilterValue, sortField, sortDirection]);
 
   const handlePatientClick = (patient: Patient) => {
     addTab({
@@ -142,6 +183,50 @@ export function PatientList() {
         {children}
         <ArrowUpDown className={`h-3 w-3 ${sortField === field ? "text-blue-600" : "text-gray-400"}`} />
       </div>
+    </th>
+  );
+
+  const FilterHeader = ({ children }: { children: React.ReactNode }) => (
+    <th className="px-4 py-3 font-medium text-gray-900 relative">
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setShowSecteurFilter(!showSecteurFilter)}
+          className="flex items-center gap-1 hover:text-blue-600"
+        >
+          {children}
+          <Filter className={`h-3 w-3 ${secteurFilterValue ? "text-blue-600" : "text-gray-400"}`} />
+        </button>
+        {secteurFilterValue && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSecteurFilterValue("");
+            }}
+            className="text-gray-400 hover:text-red-600"
+            title="Effacer le filtre"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      {showSecteurFilter && (
+        <div
+          ref={secteurFilterRef}
+          className="absolute top-full left-0 mt-1 z-10 bg-white border border-gray-200 rounded-md shadow-lg p-3 min-w-[250px]"
+        >
+          <label className="block text-xs text-gray-600 mb-1">
+            Filtrer par secteur (séparez par des virgules)
+          </label>
+          <input
+            type="text"
+            value={secteurFilterValue}
+            onChange={(e) => setSecteurFilterValue(e.target.value)}
+            placeholder="Ex: A, B, C"
+            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+            autoFocus
+          />
+        </div>
+      )}
     </th>
   );
 
@@ -259,7 +344,7 @@ export function PatientList() {
                 <SortHeader field="prenom">Prenom</SortHeader>
                 <SortHeader field="date_naissance">Date naissance</SortHeader>
                 <SortHeader field="sexe">Sexe</SortHeader>
-                <SortHeader field="secteur">Secteur</SortHeader>
+                <FilterHeader>Secteur</FilterHeader>
                 <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
               </tr>
             </thead>
