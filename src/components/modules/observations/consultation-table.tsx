@@ -16,9 +16,8 @@ interface ConsultationTableProps {
 
 const typeLabels: Record<string, string> = {
   consultation: "Consultation",
-  visite: "Visite",
   reunion: "Reunion",
-  staff: "Staff",
+  contact: "Contact",
   autre: "Autre",
 };
 

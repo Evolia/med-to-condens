@@ -32,9 +32,8 @@ interface ConsultationViewProps {
 
 const typeOptions = [
   { value: "consultation", label: "Consultation" },
-  { value: "visite", label: "Visite" },
   { value: "reunion", label: "Reunion" },
-  { value: "staff", label: "Staff" },
+  { value: "contact", label: "Contact" },
   { value: "autre", label: "Autre" },
 ];
 
