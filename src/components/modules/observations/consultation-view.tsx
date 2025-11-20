@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import {
@@ -47,6 +47,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   // Inline editing states
   const [editingField, setEditingField] = useState<"titre" | "type" | "date" | null>(null);
   const [editValue, setEditValue] = useState("");
+  const editingContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: consultation, isLoading } = useConsultation(consultationId);
   const { data: observations } = useObservations({ consultationId });
@@ -55,6 +56,25 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const createPatient = useCreatePatient();
   const createObservation = useCreateObservation();
   const updateConsultation = useUpdateConsultation();
+
+  // Handle click outside to auto-save
+  useEffect(() => {
+    const handleClickOutside = async (event: MouseEvent) => {
+      if (
+        editingField &&
+        editingContainerRef.current &&
+        !editingContainerRef.current.contains(event.target as Node)
+      ) {
+        // Auto-save and close
+        await handleSaveField();
+      }
+    };
+
+    if (editingField) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [editingField, editValue]);
 
   if (isLoading) {
     return (
@@ -117,21 +137,45 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     const notFoundNames: string[] = [];
 
     for (const name of names) {
-      // Try to find matching patient (case and accent insensitive)
+      // Try to find matching patient with stricter logic
       const normalizedName = normalizeString(name);
-      const nameParts = normalizedName.split(/\s+/);
-      const matchedPatient = patients.find((p) => {
-        const patientNom = normalizeString(p.nom);
-        const patientPrenom = normalizeString(p.prenom);
 
-        return nameParts.some(
-          (part) =>
-            patientNom.includes(part) ||
-            patientPrenom.includes(part) ||
-            `${patientNom} ${patientPrenom}`.includes(normalizedName) ||
-            `${patientPrenom} ${patientNom}`.includes(normalizedName)
-        );
+      // First: try exact full name match (nom prenom or prenom nom)
+      let matchedPatient = patients.find((p) => {
+        const patientFullName1 = normalizeString(`${p.nom} ${p.prenom}`);
+        const patientFullName2 = normalizeString(`${p.prenom} ${p.nom}`);
+        return patientFullName1 === normalizedName || patientFullName2 === normalizedName;
       });
+
+      // Second: try partial match but require at least 2 matching parts or single exact nom match
+      if (!matchedPatient) {
+        const nameParts = normalizedName.split(/\s+/);
+
+        if (nameParts.length === 1) {
+          // Single word: only match if it's an exact nom match
+          matchedPatient = patients.find((p) => normalizeString(p.nom) === nameParts[0]);
+        } else {
+          // Multiple words: try to match all parts
+          const candidates = patients.filter((p) => {
+            const patientNom = normalizeString(p.nom);
+            const patientPrenom = normalizeString(p.prenom);
+
+            // Check if all name parts are found in patient name
+            return nameParts.every(part =>
+              patientNom.includes(part) || patientPrenom.includes(part)
+            );
+          });
+
+          // If multiple candidates, choose the best match (shortest full name = closest match)
+          if (candidates.length > 0) {
+            matchedPatient = candidates.reduce((best, current) => {
+              const bestLen = (best.nom + best.prenom).length;
+              const currentLen = (current.nom + current.prenom).length;
+              return currentLen < bestLen ? current : best;
+            });
+          }
+        }
+      }
 
       if (matchedPatient) {
         let ageInDays: number | undefined;
@@ -213,6 +257,56 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     setUnmatchedNames((prev) => prev.filter((n) => n !== name));
   };
 
+  const findSimilarPatients = (name: string) => {
+    if (!patients) return [];
+
+    const normalizedName = normalizeString(name);
+    const nameParts = normalizedName.split(/\s+/);
+
+    // Find patients where at least one name part matches
+    const similar = patients.filter((p) => {
+      const patientNom = normalizeString(p.nom);
+      const patientPrenom = normalizeString(p.prenom);
+
+      return nameParts.some(part =>
+        patientNom.includes(part) || patientPrenom.includes(part) ||
+        part.includes(patientNom) || part.includes(patientPrenom)
+      );
+    });
+
+    // Limit to 3 suggestions
+    return similar.slice(0, 3);
+  };
+
+  const handleSelectSimilarPatient = async (name: string, patientId: string) => {
+    if (!consultation) return;
+
+    try {
+      const patient = patients?.find(p => p.id === patientId);
+      if (!patient) return;
+
+      let ageInDays: number | undefined;
+      if (patient.date_naissance) {
+        ageInDays = calculateAgeInDays(patient.date_naissance, consultation.date);
+      }
+
+      await createObservation.mutateAsync({
+        patient_id: patientId,
+        consultation_id: consultationId,
+        date: consultation.date,
+        type_observation: TypeObservation.CONSULTATION,
+        contenu: "",
+        age_patient_jours: ageInDays,
+      });
+
+      // Remove from unmatched list
+      setUnmatchedNames((prev) => prev.filter((n) => n !== name));
+    } catch (error) {
+      console.error("Error creating observation:", error);
+      alert("Erreur lors de la création de l'observation");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -221,7 +315,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           <div className="flex-1">
             {/* Title */}
             {editingField === "titre" ? (
-              <div className="flex items-center gap-2">
+              <div ref={editingContainerRef} className="flex items-center gap-2">
                 <input
                   type="text"
                   value={editValue}
@@ -254,7 +348,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
             <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
               {/* Type */}
               {editingField === "type" ? (
-                <div className="flex items-center gap-1">
+                <div ref={editingContainerRef} className="flex items-center gap-1">
                   <select
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
@@ -288,7 +382,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
 
               {/* Date */}
               {editingField === "date" ? (
-                <div className="flex items-center gap-1">
+                <div ref={editingContainerRef} className="flex items-center gap-1">
                   <input
                     type="date"
                     value={editValue}
@@ -356,32 +450,54 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           <p className="mb-2 text-sm font-medium text-yellow-800">
             {unmatchedNames.length} patient(s) non trouve(s) :
           </p>
-          <div className="space-y-2">
-            {unmatchedNames.map((name) => (
-              <div
-                key={name}
-                className="flex items-center justify-between rounded-md bg-white px-3 py-2 shadow-sm"
-              >
-                <span className="text-sm text-gray-700">{name}</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handleCreatePatient(name)}
-                    isLoading={creatingPatient === name}
-                  >
-                    <UserPlus className="mr-1 h-3 w-3" />
-                    Creer
-                  </Button>
-                  <button
-                    onClick={() => handleDismissUnmatched(name)}
-                    className="p-1 text-gray-400 hover:text-gray-600"
-                    title="Ignorer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+          <div className="space-y-3">
+            {unmatchedNames.map((name) => {
+              const similarPatients = findSimilarPatients(name);
+              return (
+                <div
+                  key={name}
+                  className="rounded-md bg-white p-3 shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">{name}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleCreatePatient(name)}
+                        isLoading={creatingPatient === name}
+                      >
+                        <UserPlus className="mr-1 h-3 w-3" />
+                        Creer nouveau
+                      </Button>
+                      <button
+                        onClick={() => handleDismissUnmatched(name)}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Ignorer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {similarPatients.length > 0 && (
+                    <div className="pl-2 border-l-2 border-blue-200">
+                      <p className="text-xs text-gray-500 mb-1">Patients similaires :</p>
+                      <div className="space-y-1">
+                        {similarPatients.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => handleSelectSimilarPatient(name, p.id)}
+                            className="block w-full text-left px-2 py-1 text-xs rounded hover:bg-blue-50 text-blue-700"
+                          >
+                            {p.nom} {p.prenom}
+                            {p.date_naissance && ` (${formatDate(p.date_naissance)})`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
