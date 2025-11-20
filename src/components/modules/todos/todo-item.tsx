@@ -14,6 +14,7 @@ import { useTabsStore } from "@/stores/tabs-store";
 
 interface TodoItemProps {
   todo: Todo;
+  showPatient?: boolean;
 }
 
 const urgenceColors: Record<UrgenceTodo, string> = {
@@ -34,7 +35,7 @@ const typeLabels: Record<TypeTodo, string> = {
   [TypeTodo.AUTRE]: "Autre",
 };
 
-export function TodoItem({ todo }: TodoItemProps) {
+export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
   const [showAnnotation, setShowAnnotation] = useState(false);
   const [annotation, setAnnotation] = useState(todo.annotations || "");
 
@@ -107,6 +108,14 @@ export function TodoItem({ todo }: TodoItemProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
+          {showPatient && todo.patient && (
+            <button
+              onClick={handlePatientClick}
+              className="text-xs font-medium text-blue-600 hover:text-blue-800 mb-1"
+            >
+              {todo.patient.nom.toUpperCase()} {todo.patient.prenom}
+            </button>
+          )}
           <p
             className={`text-sm ${
               todo.completed ? "text-gray-500 line-through" : "text-gray-900"
