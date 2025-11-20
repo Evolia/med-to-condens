@@ -219,7 +219,7 @@ export function PatientCard({ patientId }: PatientCardProps) {
             <div className="rounded-md border-2 border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
               Aucun resume genere.
               <br />
-              Cliquez sur "Generer" pour creer un resume automatique des
+              Cliquez sur &quot;Generer&quot; pour creer un resume automatique des
               observations.
             </div>
           )}

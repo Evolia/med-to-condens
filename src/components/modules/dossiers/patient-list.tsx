@@ -92,7 +92,7 @@ export function PatientList() {
           <div className="flex h-full flex-col items-center justify-center text-gray-500">
             <User className="mb-2 h-12 w-12 text-gray-300" />
             {searchTerm ? (
-              <p>Aucun patient trouve pour "{searchTerm}"</p>
+              <p>Aucun patient trouve pour &quot;{searchTerm}&quot;</p>
             ) : (
               <p>Aucun patient enregistre</p>
             )}
