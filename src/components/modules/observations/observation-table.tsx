@@ -6,6 +6,7 @@ import { Observation, TypeObservation, Patient, ModuleType } from "@/types";
 import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
+import { useAppModule } from "@/components/layout/use-app-module";
 
 type SortField = "patient" | "secteur" | "age" | "date" | "type";
 type SortDirection = "asc" | "desc";
@@ -39,6 +40,7 @@ export function ObservationTable({
   const updateObservation = useUpdateObservation();
   const { data: allTodos } = useTodos({ completed: false });
   const { addTab } = useTabsStore();
+  const { setActiveModule } = useAppModule();
 
   // Get todos count by patient
   const todosByPatient = useMemo(() => {
@@ -129,6 +131,8 @@ export function ObservationTable({
   };
 
   const handlePatientClick = (patient: Patient) => {
+    // Switch to dossiers module and open patient tab
+    setActiveModule(ModuleType.DOSSIERS);
     addTab({
       id: `patient-${patient.id}`,
       type: "patient",

@@ -91,6 +91,8 @@ export function useUpdateConsultation() {
       id,
       ...updates
     }: Partial<Consultation> & { id: string }) => {
+      console.log("Updating consultation:", id, "with updates:", updates);
+
       const { data, error } = await supabase
         .from("consultations")
         .update(updates)
@@ -98,7 +100,10 @@ export function useUpdateConsultation() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error details:", error);
+        throw new Error(`${error.message}${error.hint ? ` (Hint: ${error.hint})` : ''}${error.details ? ` - ${error.details}` : ''}`);
+      }
       return data as Consultation;
     },
     onSuccess: (data) => {

@@ -104,12 +104,22 @@ export function ConsultationTable({ consultations }: ConsultationTableProps) {
   };
 
   const handleSaveTags = async (consultationId: string) => {
-    await updateConsultation.mutateAsync({
-      id: consultationId,
-      tags: editTagsValue,
-    });
-    setEditingTagsId(null);
-    setEditTagsValue("");
+    try {
+      // Clean up tags data (trim extra spaces between tags)
+      const cleanedTags = editTagsValue
+        ? editTagsValue.split(',').map(t => t.trim()).filter(t => t).join(', ')
+        : '';
+
+      await updateConsultation.mutateAsync({
+        id: consultationId,
+        tags: cleanedTags,
+      });
+      setEditingTagsId(null);
+      setEditTagsValue("");
+    } catch (error) {
+      console.error("Erreur lors de la sauvegarde des tags:", error);
+      alert(`Erreur lors de la sauvegarde des tags: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    }
   };
 
   const handleCancelEditTags = () => {
