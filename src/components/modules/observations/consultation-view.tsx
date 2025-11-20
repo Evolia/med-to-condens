@@ -16,6 +16,7 @@ import { TypeObservation } from "@/types";
 import { ObservationTable } from "./observation-table";
 import { ObservationForm } from "./observation-form";
 import { formatDate, calculateAgeInDays } from "@/lib/date-utils";
+import { useTabsStore } from "@/stores/tabs-store";
 
 // Normalize string: remove accents and convert to lowercase
 function normalizeString(str: string): string {
@@ -56,6 +57,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const createPatient = useCreatePatient();
   const createObservation = useCreateObservation();
   const updateConsultation = useUpdateConsultation();
+  const { updateTab } = useTabsStore();
 
   // Handle click outside to auto-save
   useEffect(() => {
@@ -113,6 +115,14 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
       id: consultationId,
       ...updates,
     });
+
+    // Update tab title if titre was modified
+    if (editingField === "titre") {
+      updateTab(`consultation-${consultationId}`, {
+        title: editValue,
+      });
+    }
+
     setEditingField(null);
     setEditValue("");
   };

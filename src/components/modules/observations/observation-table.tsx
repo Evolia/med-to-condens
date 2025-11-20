@@ -7,7 +7,7 @@ import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
 
-type SortField = "patient" | "ddn" | "age" | "date" | "type";
+type SortField = "patient" | "secteur" | "age" | "date" | "type";
 type SortDirection = "asc" | "desc";
 
 interface ObservationTableProps {
@@ -61,10 +61,10 @@ export function ObservationTable({
           const nameB = b.patient ? `${b.patient.nom} ${b.patient.prenom}` : "";
           comparison = nameA.localeCompare(nameB);
           break;
-        case "ddn":
-          const ddnA = a.patient?.date_naissance || "";
-          const ddnB = b.patient?.date_naissance || "";
-          comparison = ddnA.localeCompare(ddnB);
+        case "secteur":
+          const secteurA = a.patient?.secteur || "";
+          const secteurB = b.patient?.secteur || "";
+          comparison = secteurA.localeCompare(secteurB);
           break;
         case "age":
           const ageA = a.age_patient_jours || 0;
@@ -169,7 +169,7 @@ export function ObservationTable({
             {showPatient && (
               <SortHeader field="patient">Patient</SortHeader>
             )}
-            <SortHeader field="ddn">DDN</SortHeader>
+            <SortHeader field="secteur">Secteur</SortHeader>
             <SortHeader field="age">Age</SortHeader>
             <SortHeader field="date">Date</SortHeader>
             <SortHeader field="type">Type</SortHeader>
@@ -205,8 +205,18 @@ export function ObservationTable({
                   )}
                 </td>
               )}
-              <td className="px-4 py-3 text-gray-500 text-xs">
-                {obs.patient?.date_naissance ? formatDate(obs.patient.date_naissance) : "-"}
+              <td className="px-4 py-3">
+                {obs.patient?.secteur ? (
+                  <div className="flex flex-wrap gap-1">
+                    {obs.patient.secteur.split(",").map((s, i) => (
+                      <span key={i} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                        {s.trim()}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
               </td>
               <td className="px-4 py-3 text-gray-600">{getAgeDisplay(obs)}</td>
               <td className="px-4 py-3 text-gray-600">{formatDate(obs.date)}</td>
