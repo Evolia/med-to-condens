@@ -79,12 +79,31 @@ export function ObservationForm({
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
             Patient
           </label>
-          <PatientSearch
-            value={selectedPatientId}
-            onChange={handlePatientChange}
-            placeholder="Rechercher un patient..."
-            required
-          />
+          {selectedPatient ? (
+            <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+              <span className="font-medium text-gray-900">
+                {selectedPatient.nom.toUpperCase()} {selectedPatient.prenom}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPatientId("");
+                  setSelectedPatient(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+                title="Changer de patient"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <PatientSearch
+              value={selectedPatientId}
+              onChange={handlePatientChange}
+              placeholder="Rechercher un patient..."
+              required
+            />
+          )}
         </div>
       )}
 
