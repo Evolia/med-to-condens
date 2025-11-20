@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServerClient } from "@/lib/supabase/server";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
@@ -72,14 +70,10 @@ export async function POST(request: NextRequest) {
       )
       .join("\n");
 
-    // Generate summary with Claude
-    const message = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 500,
-      messages: [
-        {
-          role: "user",
-          content: `Tu es un assistant medical. Resume en 3-5 points cles les observations suivantes pour cet enfant.
+    // Generate summary with Gemini
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const prompt = `Tu es un assistant medical. Resume en 3-5 points cles les observations suivantes pour cet enfant.
 Focus sur: diagnostics, traitements en cours, points de vigilance, evolution.
 Sois concis et utilise un langage medical professionnel.
 
@@ -90,13 +84,10 @@ ${patient.notes ? `Notes: ${patient.notes}` : ""}
 Observations:
 ${observationsText}
 
-Resume (en francais):`,
-        },
-      ],
-    });
+Resume (en francais):`;
 
-    const summary =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const result = await model.generateContent(prompt);
+    const summary = result.response.text();
 
     // Save summary to patient record
     await supabase

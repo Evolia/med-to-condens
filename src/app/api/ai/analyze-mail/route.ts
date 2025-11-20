@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createServerClient } from "@/lib/supabase/server";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || "");
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,14 +26,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Analyze mail with Claude
-    const message = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 500,
-      messages: [
-        {
-          role: "user",
-          content: `Tu es un assistant medical. Analyse ce mail et extrait les informations pertinentes.
+    // Analyze mail with Gemini
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    const prompt = `Tu es un assistant medical. Analyse ce mail et extrait les informations pertinentes.
 
 Contenu du mail:
 ${mailContent}
@@ -45,13 +39,10 @@ Extrait et structure les informations suivantes (en francais):
 2. Points importants a retenir
 3. Actions a entreprendre (si mentionnees)
 
-Format ta reponse de maniere concise et professionnelle.`,
-        },
-      ],
-    });
+Format ta reponse de maniere concise et professionnelle.`;
 
-    const analysis =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const result = await model.generateContent(prompt);
+    const analysis = result.response.text();
 
     // Save mail import
     await supabase.from("mail_imports").insert({
