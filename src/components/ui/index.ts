@@ -5,3 +5,5 @@ export { Input } from "./input";
 export type { InputProps } from "./input";
 
 export { PatientSearch } from "./patient-search";
+
+export { SecteurInput } from "./secteur-input";

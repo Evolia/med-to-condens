@@ -150,3 +150,26 @@ export function useDeletePatient() {
     },
   });
 }
+
+export function useSectors() {
+  const { user } = useAuth();
+  const supabase = createBrowserClient();
+
+  return useQuery({
+    queryKey: [PATIENTS_KEY, "sectors"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("patients")
+        .select("secteur")
+        .not("secteur", "is", null)
+        .not("secteur", "eq", "");
+
+      if (error) throw error;
+
+      // Extract unique sectors
+      const uniqueSectors = Array.from(new Set(data.map((p) => p.secteur).filter(Boolean))) as string[];
+      return uniqueSectors.sort();
+    },
+    enabled: !!user,
+  });
+}

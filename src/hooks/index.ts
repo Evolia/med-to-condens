@@ -9,6 +9,7 @@ export {
   useCreatePatient,
   useUpdatePatient,
   useDeletePatient,
+  useSectors,
 } from "./use-patients";
 
 // Observations
