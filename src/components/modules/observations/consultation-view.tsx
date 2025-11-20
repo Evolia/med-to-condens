@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Users, FileText } from "lucide-react";
+import { Plus, Users, FileText, UserPlus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import {
   useConsultation,
   useObservations,
   usePatients,
   useCreateBulkObservations,
+  useCreatePatient,
+  useCreateObservation,
 } from "@/hooks";
 import { TypeObservation } from "@/types";
 import { ObservationTable } from "./observation-table";
@@ -30,11 +32,15 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [showNewObservation, setShowNewObservation] = useState(false);
   const [nameList, setNameList] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
+  const [creatingPatient, setCreatingPatient] = useState<string | null>(null);
 
   const { data: consultation, isLoading } = useConsultation(consultationId);
   const { data: observations } = useObservations({ consultationId });
   const { data: patients } = usePatients();
   const createBulkObservations = useCreateBulkObservations();
+  const createPatient = useCreatePatient();
+  const createObservation = useCreateObservation();
 
   if (isLoading) {
     return (
@@ -64,6 +70,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
       .filter((n) => n);
 
     const observationsToCreate = [];
+    const notFoundNames: string[] = [];
 
     for (const name of names) {
       // Try to find matching patient (case and accent insensitive)
@@ -99,6 +106,8 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           contenu: "",
           age_patient_jours: ageInDays,
         });
+      } else {
+        notFoundNames.push(name);
       }
     }
 
@@ -108,13 +117,56 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
 
     setNameList("");
     setIsImporting(false);
+    setUnmatchedNames(notFoundNames);
+  };
 
-    const notFound = names.length - observationsToCreate.length;
-    if (notFound > 0) {
-      alert(
-        `${observationsToCreate.length} observation(s) creee(s). ${notFound} patient(s) non trouve(s).`
-      );
+  const handleCreatePatient = async (name: string) => {
+    if (!consultation) return;
+
+    setCreatingPatient(name);
+
+    // Parse name into nom/prenom (assume format: "Prenom Nom" or "Nom")
+    const parts = name.trim().split(/\s+/);
+    let nom: string;
+    let prenom: string;
+
+    if (parts.length === 1) {
+      nom = parts[0];
+      prenom = "";
+    } else {
+      // Assume last word is nom, rest is prenom
+      nom = parts[parts.length - 1];
+      prenom = parts.slice(0, -1).join(" ");
     }
+
+    try {
+      // Create the patient
+      const newPatient = await createPatient.mutateAsync({
+        nom: nom.toUpperCase(),
+        prenom,
+      });
+
+      // Create the observation for this consultation
+      await createObservation.mutateAsync({
+        patient_id: newPatient.id,
+        consultation_id: consultationId,
+        date: consultation.date,
+        type_observation: TypeObservation.CONSULTATION,
+        contenu: "",
+      });
+
+      // Remove from unmatched list
+      setUnmatchedNames((prev) => prev.filter((n) => n !== name));
+    } catch (error) {
+      console.error("Error creating patient:", error);
+      alert("Erreur lors de la creation du patient");
+    } finally {
+      setCreatingPatient(null);
+    }
+  };
+
+  const handleDismissUnmatched = (name: string) => {
+    setUnmatchedNames((prev) => prev.filter((n) => n !== name));
   };
 
   return (
@@ -165,6 +217,42 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           </Button>
         </div>
       </div>
+
+      {/* Unmatched names section */}
+      {unmatchedNames.length > 0 && (
+        <div className="border-b border-gray-200 bg-yellow-50 p-4">
+          <p className="mb-2 text-sm font-medium text-yellow-800">
+            {unmatchedNames.length} patient(s) non trouve(s) :
+          </p>
+          <div className="space-y-2">
+            {unmatchedNames.map((name) => (
+              <div
+                key={name}
+                className="flex items-center justify-between rounded-md bg-white px-3 py-2 shadow-sm"
+              >
+                <span className="text-sm text-gray-700">{name}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleCreatePatient(name)}
+                    isLoading={creatingPatient === name}
+                  >
+                    <UserPlus className="mr-1 h-3 w-3" />
+                    Creer
+                  </Button>
+                  <button
+                    onClick={() => handleDismissUnmatched(name)}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                    title="Ignorer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Observations list */}
       <div className="flex-1 overflow-auto">
