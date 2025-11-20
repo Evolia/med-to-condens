@@ -40,6 +40,10 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
       let result: Patient;
 
       if (isEditing) {
+        if (!patient?.id) {
+          alert("Erreur: Impossible de mettre à jour le patient (ID manquant)");
+          return;
+        }
         result = await updatePatient.mutateAsync({
           id: patient.id,
           ...formData,
@@ -55,6 +59,7 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
       onSuccess?.(result);
     } catch (error) {
       console.error("Erreur lors de la sauvegarde:", error);
+      alert("Erreur lors de la sauvegarde: " + (error instanceof Error ? error.message : "Erreur inconnue"));
     }
   };
 

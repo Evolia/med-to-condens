@@ -68,9 +68,14 @@ export function SecteurInput({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       setIsOpen(false);
-    } else if (e.key === "Enter" && filteredSectors.length > 0) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      handleSelectSector(filteredSectors[0]);
+      if (filteredSectors.length > 0) {
+        handleSelectSector(filteredSectors[0]);
+      } else if (inputValue) {
+        // Create new sector tag
+        handleSelectSector(inputValue);
+      }
     }
   };
 
