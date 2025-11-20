@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Edit, Trash2, CheckSquare } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList } from "lucide-react";
 import { Observation, TypeObservation, Patient, ModuleType } from "@/types";
-import { useDeleteObservation, useUpdateObservation } from "@/hooks";
+import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
+
+type SortField = "patient" | "ddn" | "age" | "date" | "type";
+type SortDirection = "asc" | "desc";
 
 interface ObservationTableProps {
   observations: Observation[];
@@ -29,9 +32,77 @@ export function ObservationTable({
 }: ObservationTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
   const deleteObservation = useDeleteObservation();
   const updateObservation = useUpdateObservation();
+  const { data: allTodos } = useTodos({ completed: false });
   const { addTab } = useTabsStore();
+
+  // Get todos count by patient
+  const todosByPatient = useMemo(() => {
+    if (!allTodos) return {};
+    const map: Record<string, number> = {};
+    allTodos.forEach((todo) => {
+      map[todo.patient_id] = (map[todo.patient_id] || 0) + 1;
+    });
+    return map;
+  }, [allTodos]);
+
+  // Sort observations
+  const sortedObservations = useMemo(() => {
+    return [...observations].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case "patient":
+          const nameA = a.patient ? `${a.patient.nom} ${a.patient.prenom}` : "";
+          const nameB = b.patient ? `${b.patient.nom} ${b.patient.prenom}` : "";
+          comparison = nameA.localeCompare(nameB);
+          break;
+        case "ddn":
+          const ddnA = a.patient?.date_naissance || "";
+          const ddnB = b.patient?.date_naissance || "";
+          comparison = ddnA.localeCompare(ddnB);
+          break;
+        case "age":
+          const ageA = a.age_patient_jours || 0;
+          const ageB = b.age_patient_jours || 0;
+          comparison = ageA - ageB;
+          break;
+        case "date":
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case "type":
+          comparison = a.type_observation.localeCompare(b.type_observation);
+          break;
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [observations, sortField, sortDirection]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <th
+      className="px-4 py-3 font-medium text-gray-900 cursor-pointer hover:bg-gray-100"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <ArrowUpDown className={`h-3 w-3 ${sortField === field ? "text-blue-600" : "text-gray-400"}`} />
+      </div>
+    </th>
+  );
 
   const handleEdit = (obs: Observation) => {
     setEditingId(obs.id);
@@ -96,32 +167,47 @@ export function ObservationTable({
         <thead className="bg-gray-50 text-left">
           <tr>
             {showPatient && (
-              <th className="px-4 py-3 font-medium text-gray-900">Patient</th>
+              <SortHeader field="patient">Patient</SortHeader>
             )}
-            <th className="px-4 py-3 font-medium text-gray-900">Age</th>
-            <th className="px-4 py-3 font-medium text-gray-900">Date</th>
-            <th className="px-4 py-3 font-medium text-gray-900">Type</th>
+            <SortHeader field="ddn">DDN</SortHeader>
+            <SortHeader field="age">Age</SortHeader>
+            <SortHeader field="date">Date</SortHeader>
+            <SortHeader field="type">Type</SortHeader>
             <th className="px-4 py-3 font-medium text-gray-900">Contenu</th>
             <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {observations.map((obs) => (
+          {sortedObservations.map((obs) => (
             <tr key={obs.id} className="hover:bg-gray-50">
               {showPatient && (
                 <td className="px-4 py-3">
                   {obs.patient ? (
-                    <button
-                      onClick={() => handlePatientClick(obs.patient!)}
-                      className="font-medium text-blue-600 hover:text-blue-800"
-                    >
-                      {obs.patient.nom.toUpperCase()} {obs.patient.prenom}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handlePatientClick(obs.patient!)}
+                        className="font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        {obs.patient.nom.toUpperCase()} {obs.patient.prenom}
+                      </button>
+                      {todosByPatient[obs.patient.id] > 0 && (
+                        <span
+                          className="flex items-center gap-0.5 rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700"
+                          title={`${todosByPatient[obs.patient.id]} tache(s) en cours`}
+                        >
+                          <ClipboardList className="h-3 w-3" />
+                          {todosByPatient[obs.patient.id]}
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     "-"
                   )}
                 </td>
               )}
+              <td className="px-4 py-3 text-gray-500 text-xs">
+                {obs.patient?.date_naissance ? formatDate(obs.patient.date_naissance) : "-"}
+              </td>
               <td className="px-4 py-3 text-gray-600">{getAgeDisplay(obs)}</td>
               <td className="px-4 py-3 text-gray-600">{formatDate(obs.date)}</td>
               <td className="px-4 py-3">
@@ -153,7 +239,13 @@ export function ObservationTable({
                     </button>
                   </div>
                 ) : (
-                  <p className="line-clamp-2 text-gray-600">{obs.contenu || "-"}</p>
+                  <p
+                    onClick={() => handleEdit(obs)}
+                    className="line-clamp-2 text-gray-600 cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1"
+                    title="Cliquez pour modifier"
+                  >
+                    {obs.contenu || <span className="text-gray-400 italic">Ajouter du contenu...</span>}
+                  </p>
                 )}
               </td>
               <td className="px-4 py-3">
