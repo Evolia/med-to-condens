@@ -72,13 +72,13 @@ BEGIN
     VALUES
         (v_user_id, v_patient_1, v_consultation_1, CURRENT_DATE - INTERVAL '7 days', 'consultation',
          'Consultation de suivi asthme. Pas de crise depuis 3 mois. Ventoline utilisee 1x/semaine maximum. Poursuite traitement de fond. RDV dans 3 mois.',
-         (CURRENT_DATE - INTERVAL '7 days' - '2020-03-15'::date)),
+         ((CURRENT_DATE - INTERVAL '7 days')::date - '2020-03-15'::date)),
         (v_user_id, v_patient_1, NULL, CURRENT_DATE - INTERVAL '30 days', 'telephone',
          'Appel maman: toux nocturne depuis 3 jours. Conseils majoration Ventoline. Rappeler si persistance > 5j.',
-         (CURRENT_DATE - INTERVAL '30 days' - '2020-03-15'::date)),
+         ((CURRENT_DATE - INTERVAL '30 days')::date - '2020-03-15'::date)),
         (v_user_id, v_patient_1, NULL, CURRENT_DATE - INTERVAL '90 days', 'resultats',
          'IgE specifiques: acariens positifs (classe 3). Chat negatif. Conseil eviction acariens.',
-         (CURRENT_DATE - INTERVAL '90 days' - '2020-03-15'::date));
+         ((CURRENT_DATE - INTERVAL '90 days')::date - '2020-03-15'::date));
 
     -- Lucas Martin - Developmental follow-up
     INSERT INTO observations (user_id, patient_id, consultation_id, date, type_observation, contenu, age_patient_jours)
@@ -88,7 +88,7 @@ BEGIN
          (CURRENT_DATE - '2019-07-22'::date)),
         (v_user_id, v_patient_2, NULL, CURRENT_DATE - INTERVAL '60 days', 'courrier',
          'Courrier orthophoniste: progres significatifs en articulation. Propose arret seances dans 3 mois si evolution favorable.',
-         (CURRENT_DATE - INTERVAL '60 days' - '2019-07-22'::date));
+         ((CURRENT_DATE - INTERVAL '60 days')::date - '2019-07-22'::date));
 
     -- Chloe Lefevre - Standard follow-up
     INSERT INTO observations (user_id, patient_id, consultation_id, date, type_observation, contenu, age_patient_jours)
@@ -102,20 +102,20 @@ BEGIN
     VALUES
         (v_user_id, v_patient_4, v_consultation_1, CURRENT_DATE - INTERVAL '7 days', 'consultation',
          'Poussee eczema coudes et genoux. Prescription dermocorticoides classe 2 x 7j puis decroissance. Rappel hydratation quotidienne. Controle J15.',
-         (CURRENT_DATE - INTERVAL '7 days' - '2021-01-30'::date)),
+         ((CURRENT_DATE - INTERVAL '7 days')::date - '2021-01-30'::date)),
         (v_user_id, v_patient_4, NULL, CURRENT_DATE - INTERVAL '14 days', 'urgence',
          'Surinfection eczema bras droit. Prescription Fucidine + Augmentin 7j. Eviction collectivite 48h. Controle J7.',
-         (CURRENT_DATE - INTERVAL '14 days' - '2021-01-30'::date));
+         ((CURRENT_DATE - INTERVAL '14 days')::date - '2021-01-30'::date));
 
     -- Lea Bernard - ADHD follow-up
     INSERT INTO observations (user_id, patient_id, consultation_id, date, type_observation, contenu, age_patient_jours)
     VALUES
         (v_user_id, v_patient_5, NULL, CURRENT_DATE - INTERVAL '45 days', 'suivi',
          'Point trimestriel TDAH. Methylphenidate bien tolere. Parents notent amelioration concentration ecole. Pas effets secondaires. Poursuite traitement. Prochain RDV neuropediatre dans 2 mois.',
-         (CURRENT_DATE - INTERVAL '45 days' - '2018-05-12'::date)),
+         ((CURRENT_DATE - INTERVAL '45 days')::date - '2018-05-12'::date)),
         (v_user_id, v_patient_5, NULL, CURRENT_DATE - INTERVAL '120 days', 'reunion',
          'Reunion equipe educative ecole. Amenagements scolaires en place: temps supplementaire, placement devant. Progres notes.',
-         (CURRENT_DATE - INTERVAL '120 days' - '2018-05-12'::date));
+         ((CURRENT_DATE - INTERVAL '120 days')::date - '2018-05-12'::date));
 
     -- Nathan Petit - New patient
     INSERT INTO observations (user_id, patient_id, consultation_id, date, type_observation, contenu, age_patient_jours)
