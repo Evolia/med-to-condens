@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Users, FileText, UserPlus, X } from "lucide-react";
+import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import {
   useConsultation,
@@ -10,6 +10,7 @@ import {
   useCreateBulkObservations,
   useCreatePatient,
   useCreateObservation,
+  useUpdateConsultation,
 } from "@/hooks";
 import { TypeObservation } from "@/types";
 import { ObservationTable } from "./observation-table";
@@ -28,6 +29,14 @@ interface ConsultationViewProps {
   consultationId: string;
 }
 
+const typeOptions = [
+  { value: "consultation", label: "Consultation" },
+  { value: "visite", label: "Visite" },
+  { value: "reunion", label: "Reunion" },
+  { value: "staff", label: "Staff" },
+  { value: "autre", label: "Autre" },
+];
+
 export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [showNewObservation, setShowNewObservation] = useState(false);
   const [nameList, setNameList] = useState("");
@@ -35,12 +44,17 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [creatingPatient, setCreatingPatient] = useState<string | null>(null);
 
+  // Inline editing states
+  const [editingField, setEditingField] = useState<"titre" | "type" | "date" | null>(null);
+  const [editValue, setEditValue] = useState("");
+
   const { data: consultation, isLoading } = useConsultation(consultationId);
   const { data: observations } = useObservations({ consultationId });
   const { data: patients } = usePatients();
   const createBulkObservations = useCreateBulkObservations();
   const createPatient = useCreatePatient();
   const createObservation = useCreateObservation();
+  const updateConsultation = useUpdateConsultation();
 
   if (isLoading) {
     return (
@@ -57,6 +71,36 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
       </div>
     );
   }
+
+  const handleStartEdit = (field: "titre" | "type" | "date") => {
+    if (field === "titre") {
+      setEditValue(consultation.titre || "");
+    } else if (field === "type") {
+      setEditValue(consultation.type || "consultation");
+    } else if (field === "date") {
+      setEditValue(consultation.date);
+    }
+    setEditingField(field);
+  };
+
+  const handleSaveField = async () => {
+    if (!editingField) return;
+
+    const updates: Record<string, string> = {};
+    updates[editingField] = editValue;
+
+    await updateConsultation.mutateAsync({
+      id: consultationId,
+      ...updates,
+    });
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
 
   const handleImportNames = async () => {
     if (!nameList.trim() || !patients) return;
@@ -174,14 +218,102 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
       {/* Header */}
       <div className="border-b border-gray-200 bg-white p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              {consultation.titre || `Consultation du ${formatDate(consultation.date)}`}
-            </h2>
-            <p className="text-sm text-gray-500">
-              {consultation.type && `${consultation.type} • `}
-              {formatDate(consultation.date)}
-            </p>
+          <div className="flex-1">
+            {/* Title */}
+            {editingField === "titre" ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="flex-1 rounded border border-gray-300 px-2 py-1 text-lg font-semibold"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveField();
+                    if (e.key === "Escape") handleCancelEdit();
+                  }}
+                />
+                <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
+                  <Check className="h-4 w-4" />
+                </button>
+                <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <h2
+                onClick={() => handleStartEdit("titre")}
+                className="text-xl font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1 inline-block"
+                title="Cliquez pour modifier"
+              >
+                {consultation.titre || `Consultation du ${formatDate(consultation.date)}`}
+              </h2>
+            )}
+
+            {/* Type and Date */}
+            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
+              {/* Type */}
+              {editingField === "type" ? (
+                <div className="flex items-center gap-1">
+                  <select
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-0.5 text-sm"
+                    autoFocus
+                  >
+                    {typeOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <span
+                  onClick={() => handleStartEdit("type")}
+                  className="cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1"
+                  title="Cliquez pour modifier"
+                >
+                  {consultation.type || "consultation"}
+                </span>
+              )}
+
+              <span>•</span>
+
+              {/* Date */}
+              {editingField === "date" ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="rounded border border-gray-300 px-2 py-0.5 text-sm"
+                    autoFocus
+                  />
+                  <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <span
+                  onClick={() => handleStartEdit("date")}
+                  className="cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1 flex items-center gap-1"
+                  title="Cliquez pour modifier"
+                >
+                  <Calendar className="h-3 w-3" />
+                  {formatDate(consultation.date)}
+                </span>
+              )}
+            </div>
           </div>
           <Button onClick={() => setShowNewObservation(true)}>
             <Plus className="mr-2 h-4 w-4" />
