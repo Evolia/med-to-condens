@@ -14,6 +14,14 @@ import { ObservationTable } from "./observation-table";
 import { ObservationForm } from "./observation-form";
 import { formatDate, calculateAgeInDays } from "@/lib/date-utils";
 
+// Normalize string: remove accents and convert to lowercase
+function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 interface ConsultationViewProps {
   consultationId: string;
 }
@@ -58,18 +66,19 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     const observationsToCreate = [];
 
     for (const name of names) {
-      // Try to find matching patient
-      const nameParts = name.toLowerCase().split(/\s+/);
+      // Try to find matching patient (case and accent insensitive)
+      const normalizedName = normalizeString(name);
+      const nameParts = normalizedName.split(/\s+/);
       const matchedPatient = patients.find((p) => {
-        const patientNom = p.nom.toLowerCase();
-        const patientPrenom = p.prenom.toLowerCase();
+        const patientNom = normalizeString(p.nom);
+        const patientPrenom = normalizeString(p.prenom);
 
         return nameParts.some(
           (part) =>
             patientNom.includes(part) ||
             patientPrenom.includes(part) ||
-            `${patientNom} ${patientPrenom}`.includes(name.toLowerCase()) ||
-            `${patientPrenom} ${patientNom}`.includes(name.toLowerCase())
+            `${patientNom} ${patientPrenom}`.includes(normalizedName) ||
+            `${patientPrenom} ${patientNom}`.includes(normalizedName)
         );
       });
 

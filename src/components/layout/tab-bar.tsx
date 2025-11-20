@@ -23,6 +23,8 @@ export function TabBar({ module }: TabBarProps) {
     <div className="flex h-10 items-center gap-1 border-b border-gray-200 bg-gray-50 px-2">
       {moduleTabs.map((tab) => {
         const isActive = tab.id === activeTabId;
+        // Don't allow closing the main list tabs
+        const canClose = tab.type !== "list";
 
         return (
           <div
@@ -40,20 +42,22 @@ export function TabBar({ module }: TabBarProps) {
             >
               {tab.title}
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                removeTab(tab.id);
-              }}
-              className={cn(
-                "ml-1 rounded p-0.5 transition-colors",
-                isActive
-                  ? "hover:bg-gray-100"
-                  : "opacity-0 hover:bg-gray-200 group-hover:opacity-100"
-              )}
-            >
-              <X className="h-3 w-3" />
-            </button>
+            {canClose && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeTab(tab.id);
+                }}
+                className={cn(
+                  "ml-1 rounded p-0.5 transition-colors",
+                  isActive
+                    ? "hover:bg-gray-100"
+                    : "opacity-0 hover:bg-gray-200 group-hover:opacity-100"
+                )}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         );
       })}
