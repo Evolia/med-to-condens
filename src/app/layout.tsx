@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
-  title: "MedCondens",
-  description: "Application de condensation de données médicales",
+  title: "MedCondens - Suivi patients",
+  description: "Application de suivi médical et condensation de données patients",
 };
 
 export default function RootLayout({
