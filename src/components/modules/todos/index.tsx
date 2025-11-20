@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CheckCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle, Clock, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { Button } from "@/components/ui";
 import { useActiveTodos, useCompletedTodos } from "@/hooks";
 import { Todo, ModuleType } from "@/types";
 import { TodoItem } from "./todo-item";
+import { TodoForm } from "./todo-form";
 import { useTabsStore } from "@/stores/tabs-store";
 
 type ViewType = "active" | "completed";
@@ -111,6 +113,7 @@ function PatientGroup({
 
 export function TodosModule() {
   const [view, setView] = useState<ViewType>("active");
+  const [showNewTodo, setShowNewTodo] = useState(false);
 
   const { data: activeTodos, isLoading: loadingActive } = useActiveTodos();
   const { data: completedTodos, isLoading: loadingCompleted } =
@@ -128,29 +131,35 @@ export function TodosModule() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="border-b border-gray-200 bg-white p-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setView("active")}
-            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              view === "active"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <Clock className="h-4 w-4" />
-            En cours
-          </button>
-          <button
-            onClick={() => setView("completed")}
-            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              view === "completed"
-                ? "bg-blue-50 text-blue-700"
-                : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <CheckCircle className="h-4 w-4" />
-            Termines
-          </button>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setView("active")}
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                view === "active"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+              En cours
+            </button>
+            <button
+              onClick={() => setView("completed")}
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                view === "completed"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <CheckCircle className="h-4 w-4" />
+              Termines
+            </button>
+          </div>
+          <Button onClick={() => setShowNewTodo(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nouvelle tache
+          </Button>
         </div>
         <p className="mt-2 text-sm text-gray-500">
           {todos?.length || 0} tache{(todos?.length || 0) !== 1 ? "s" : ""}
@@ -159,13 +168,18 @@ export function TodosModule() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
-        {isLoading ? (
-          <div className="flex h-full items-center justify-center">
+      <div className="flex-1 overflow-auto">
+        {showNewTodo ? (
+          <TodoForm
+            onSuccess={() => setShowNewTodo(false)}
+            onCancel={() => setShowNewTodo(false)}
+          />
+        ) : isLoading ? (
+          <div className="flex h-full items-center justify-center p-4">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
           </div>
         ) : Object.keys(groupedTodos).length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center text-gray-500">
+          <div className="flex h-64 flex-col items-center justify-center text-gray-500 p-4">
             <CheckCircle className="mb-2 h-12 w-12 text-gray-300" />
             {view === "active" ? (
               <p>Aucune tache en cours</p>
@@ -174,14 +188,16 @@ export function TodosModule() {
             )}
           </div>
         ) : (
-          Object.entries(groupedTodos).map(([patientId, { patient, todos }]) => (
-            <PatientGroup
-              key={patientId}
-              patientId={patientId}
-              patient={patient}
-              todos={todos}
-            />
-          ))
+          <div className="p-4">
+            {Object.entries(groupedTodos).map(([patientId, { patient, todos }]) => (
+              <PatientGroup
+                key={patientId}
+                patientId={patientId}
+                patient={patient}
+                todos={todos}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -189,3 +205,4 @@ export function TodosModule() {
 }
 
 export { TodoItem } from "./todo-item";
+export { TodoForm } from "./todo-form";
