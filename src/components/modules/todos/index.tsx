@@ -7,9 +7,11 @@ import { useActiveTodos, useCompletedTodos } from "@/hooks";
 import { Todo, ModuleType, TypeTodo } from "@/types";
 import { TodoItem } from "./todo-item";
 import { TodoForm } from "./todo-form";
+import { WorkSessionView } from "./work-session-view";
+import { WorkSessionsList } from "./work-sessions-list";
 import { useTabsStore } from "@/stores/tabs-store";
 
-type ViewType = "active" | "completed";
+type ViewType = "active" | "completed" | "sessions";
 type GroupByType = "patient" | "type";
 
 const typeLabels: Record<TypeTodo, string> = {
@@ -31,7 +33,7 @@ function groupTodosByPatient(todos: Todo[]) {
   > = {};
 
   todos.forEach((todo) => {
-    const key = todo.patient_id;
+    const key = todo.patient_id || "no-patient";
     if (!grouped[key]) {
       grouped[key] = {
         patient: todo.patient,
@@ -194,6 +196,7 @@ export function TodosModule() {
   const [groupBy, setGroupBy] = useState<GroupByType>("patient");
   const [showNewTodo, setShowNewTodo] = useState(false);
 
+  const { tabs, activeTabId } = useTabsStore();
   const { data: activeTodos, isLoading: loadingActive } = useActiveTodos();
   const { data: completedTodos, isLoading: loadingCompleted } =
     useCompletedTodos();
@@ -210,6 +213,16 @@ export function TodosModule() {
     if (!todos) return {};
     return groupTodosByType(todos);
   }, [todos]);
+
+  // Get the active tab for this module
+  const activeTab = tabs.find(
+    (tab) => tab.id === activeTabId && tab.module === ModuleType.TODOS
+  );
+
+  // If there's a work-session tab, render the work session view
+  if (activeTab?.type === "work-session") {
+    return <WorkSessionView workSessionId={activeTab.data?.workSessionId || ""} />;
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -239,49 +252,66 @@ export function TodosModule() {
               <CheckCircle className="h-4 w-4" />
               Termines
             </button>
-          </div>
-          <Button onClick={() => setShowNewTodo(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle tache
-          </Button>
-        </div>
-        <div className="mt-2 flex items-center justify-between">
-          <p className="text-sm text-gray-500">
-            {todos?.length || 0} tache{(todos?.length || 0) !== 1 ? "s" : ""}
-            {view === "active" ? " en cours" : " terminee(s)"}
-          </p>
-          <div className="flex items-center gap-1 rounded-md bg-gray-100 p-1">
             <button
-              onClick={() => setGroupBy("patient")}
-              className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
-                groupBy === "patient"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
+              onClick={() => setView("sessions")}
+              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                view === "sessions"
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
-              title="Grouper par patient"
             >
-              <Users className="h-3 w-3" />
-              Patient
-            </button>
-            <button
-              onClick={() => setGroupBy("type")}
-              className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
-                groupBy === "type"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-              title="Grouper par type"
-            >
-              <ListTodo className="h-3 w-3" />
-              Type
+              <Users className="h-4 w-4" />
+              Sessions
             </button>
           </div>
+          {view !== "sessions" && (
+            <Button onClick={() => setShowNewTodo(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle tache
+            </Button>
+          )}
         </div>
+        {view !== "sessions" && (
+          <div className="mt-2 flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              {todos?.length || 0} tache{(todos?.length || 0) !== 1 ? "s" : ""}
+              {view === "active" ? " en cours" : " terminee(s)"}
+            </p>
+            <div className="flex items-center gap-1 rounded-md bg-gray-100 p-1">
+              <button
+                onClick={() => setGroupBy("patient")}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                  groupBy === "patient"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Grouper par patient"
+              >
+                <Users className="h-3 w-3" />
+                Patient
+              </button>
+              <button
+                onClick={() => setGroupBy("type")}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                  groupBy === "type"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Grouper par type"
+              >
+                <ListTodo className="h-3 w-3" />
+                Type
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
-        {showNewTodo ? (
+        {view === "sessions" ? (
+          <WorkSessionsList />
+        ) : showNewTodo ? (
           <TodoForm
             onSuccess={() => setShowNewTodo(false)}
             onCancel={() => setShowNewTodo(false)}

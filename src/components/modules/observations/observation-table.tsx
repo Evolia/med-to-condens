@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList, Calendar, AlertCircle } from "lucide-react";
 import { Observation, TypeObservation, Patient, ModuleType } from "@/types";
 import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
+import { useAppModule } from "@/components/layout/use-app-module";
 
-type SortField = "patient" | "ddn" | "age" | "date" | "type";
+type SortField = "patient" | "secteur" | "age" | "date" | "type";
 type SortDirection = "asc" | "desc";
 
 interface ObservationTableProps {
@@ -34,21 +35,49 @@ export function ObservationTable({
   const [editContent, setEditContent] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [showTodosForPatient, setShowTodosForPatient] = useState<string | null>(null);
+  const todosPopupRef = useRef<HTMLDivElement>(null);
 
   const deleteObservation = useDeleteObservation();
   const updateObservation = useUpdateObservation();
   const { data: allTodos } = useTodos({ completed: false });
   const { addTab } = useTabsStore();
+  const { setActiveModule } = useAppModule();
+
+  // Close todos popup on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        todosPopupRef.current &&
+        !todosPopupRef.current.contains(event.target as Node)
+      ) {
+        setShowTodosForPatient(null);
+      }
+    };
+
+    if (showTodosForPatient) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showTodosForPatient]);
 
   // Get todos count by patient
   const todosByPatient = useMemo(() => {
     if (!allTodos) return {};
     const map: Record<string, number> = {};
     allTodos.forEach((todo) => {
-      map[todo.patient_id] = (map[todo.patient_id] || 0) + 1;
+      if (todo.patient_id) {
+        map[todo.patient_id] = (map[todo.patient_id] || 0) + 1;
+      }
     });
     return map;
   }, [allTodos]);
+
+  // Get todos for a specific patient
+  const getTodosForPatient = (patientId: string) => {
+    if (!allTodos) return [];
+    return allTodos.filter((todo) => todo.patient_id === patientId);
+  };
 
   // Sort observations
   const sortedObservations = useMemo(() => {
@@ -61,10 +90,10 @@ export function ObservationTable({
           const nameB = b.patient ? `${b.patient.nom} ${b.patient.prenom}` : "";
           comparison = nameA.localeCompare(nameB);
           break;
-        case "ddn":
-          const ddnA = a.patient?.date_naissance || "";
-          const ddnB = b.patient?.date_naissance || "";
-          comparison = ddnA.localeCompare(ddnB);
+        case "secteur":
+          const secteurA = a.patient?.secteur || "";
+          const secteurB = b.patient?.secteur || "";
+          comparison = secteurA.localeCompare(secteurB);
           break;
         case "age":
           const ageA = a.age_patient_jours || 0;
@@ -129,6 +158,8 @@ export function ObservationTable({
   };
 
   const handlePatientClick = (patient: Patient) => {
+    // Switch to dossiers module and open patient tab
+    setActiveModule(ModuleType.DOSSIERS);
     addTab({
       id: `patient-${patient.id}`,
       type: "patient",
@@ -169,7 +200,7 @@ export function ObservationTable({
             {showPatient && (
               <SortHeader field="patient">Patient</SortHeader>
             )}
-            <SortHeader field="ddn">DDN</SortHeader>
+            <SortHeader field="secteur">Secteur</SortHeader>
             <SortHeader field="age">Age</SortHeader>
             <SortHeader field="date">Date</SortHeader>
             <SortHeader field="type">Type</SortHeader>
@@ -191,13 +222,60 @@ export function ObservationTable({
                         {obs.patient.nom.toUpperCase()} {obs.patient.prenom}
                       </button>
                       {todosByPatient[obs.patient.id] > 0 && (
-                        <span
-                          className="flex items-center gap-0.5 rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700"
-                          title={`${todosByPatient[obs.patient.id]} tache(s) en cours`}
-                        >
-                          <ClipboardList className="h-3 w-3" />
-                          {todosByPatient[obs.patient.id]}
-                        </span>
+                        <div className="relative">
+                          <button
+                            className="flex items-center gap-0.5 rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700 hover:bg-orange-200 cursor-pointer transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowTodosForPatient(
+                                showTodosForPatient === obs.patient!.id ? null : obs.patient!.id
+                              );
+                            }}
+                            onMouseEnter={() => setShowTodosForPatient(obs.patient!.id)}
+                            title={`${todosByPatient[obs.patient.id]} tache(s) en cours - cliquez pour voir`}
+                          >
+                            <ClipboardList className="h-3 w-3" />
+                            {todosByPatient[obs.patient.id]}
+                          </button>
+
+                          {showTodosForPatient === obs.patient.id && (
+                            <div
+                              ref={todosPopupRef}
+                              className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-md shadow-lg p-3 min-w-[300px] max-w-[400px]"
+                              onMouseLeave={() => setShowTodosForPatient(null)}
+                            >
+                              <div className="mb-2 font-medium text-sm text-gray-900 border-b pb-2">
+                                Taches en cours ({getTodosForPatient(obs.patient.id).length})
+                              </div>
+                              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                {getTodosForPatient(obs.patient.id).map((todo) => (
+                                  <div key={todo.id} className="border-l-2 border-orange-400 pl-2 py-1 text-xs">
+                                    <div className="flex items-start gap-2 mb-1">
+                                      <span className={`rounded px-1.5 py-0.5 text-xs ${
+                                        todo.urgence === 'critique' ? 'bg-red-100 text-red-700' :
+                                        todo.urgence === 'haute' ? 'bg-orange-100 text-orange-700' :
+                                        todo.urgence === 'normale' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-gray-100 text-gray-700'
+                                      }`}>
+                                        {todo.urgence}
+                                      </span>
+                                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
+                                        {todo.type_todo}
+                                      </span>
+                                    </div>
+                                    <p className="text-gray-700 mb-1">{todo.contenu}</p>
+                                    {todo.date_echeance && (
+                                      <div className="flex items-center gap-1 text-gray-500">
+                                        <Calendar className="h-3 w-3" />
+                                        <span>{formatDate(todo.date_echeance)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -205,8 +283,18 @@ export function ObservationTable({
                   )}
                 </td>
               )}
-              <td className="px-4 py-3 text-gray-500 text-xs">
-                {obs.patient?.date_naissance ? formatDate(obs.patient.date_naissance) : "-"}
+              <td className="px-4 py-3">
+                {obs.patient?.secteur ? (
+                  <div className="flex flex-wrap gap-1">
+                    {obs.patient.secteur.split(",").map((s, i) => (
+                      <span key={i} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                        {s.trim()}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
               </td>
               <td className="px-4 py-3 text-gray-600">{getAgeDisplay(obs)}</td>
               <td className="px-4 py-3 text-gray-600">{formatDate(obs.date)}</td>

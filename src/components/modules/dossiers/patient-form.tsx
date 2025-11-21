@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Save, X } from "lucide-react";
+import { Save, X, ArrowLeftRight } from "lucide-react";
 import { Button, Input, SecteurInput } from "@/components/ui";
 import { useCreatePatient, useUpdatePatient } from "@/hooks";
 import { Patient } from "@/types";
@@ -39,22 +39,34 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
     try {
       let result: Patient;
 
+      // Clean up secteur data (trim extra spaces)
+      const cleanedData = {
+        ...formData,
+        secteur: formData.secteur ? formData.secteur.split(',').map(s => s.trim()).join(', ') : undefined,
+      };
+
       if (isEditing) {
+        if (!patient?.id) {
+          alert("Erreur: Impossible de mettre à jour le patient (ID manquant)");
+          return;
+        }
         result = await updatePatient.mutateAsync({
           id: patient.id,
-          ...formData,
-          sexe: formData.sexe as "M" | "F" | "autre" | undefined,
+          ...cleanedData,
+          sexe: cleanedData.sexe as "M" | "F" | "autre" | undefined,
         });
       } else {
         result = await createPatient.mutateAsync({
-          ...formData,
-          sexe: formData.sexe as "M" | "F" | "autre" | undefined,
+          ...cleanedData,
+          sexe: cleanedData.sexe as "M" | "F" | "autre" | undefined,
         });
       }
 
       onSuccess?.(result);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de la sauvegarde:", error);
+      const errorMessage = error?.message || error?.error_description || error?.hint || JSON.stringify(error);
+      alert("Erreur lors de la sauvegarde:\n" + errorMessage);
     }
   };
 
@@ -64,15 +76,31 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
     }
   };
 
+  const handleSwapNomPrenom = () => {
+    setFormData({
+      ...formData,
+      nom: formData.prenom,
+      prenom: formData.nom,
+    });
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6 p-6">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-end">
         <Input
           label="Nom"
           value={formData.nom}
           onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
           required
         />
+        <button
+          type="button"
+          onClick={handleSwapNomPrenom}
+          className="mb-2 p-2 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+          title="Inverser nom et prénom"
+        >
+          <ArrowLeftRight className="h-5 w-5" />
+        </button>
         <Input
           label="Prenom"
           value={formData.prenom}

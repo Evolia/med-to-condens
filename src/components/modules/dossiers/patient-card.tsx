@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Check,
   X,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import {
@@ -196,6 +197,92 @@ export function PatientCard({ patientId }: PatientCardProps) {
     return labels[type] || type;
   };
 
+  const handleExportPatient = async () => {
+    if (!patient) return;
+
+    try {
+      // Build the text report
+      let text = `DOSSIER PATIENT\n`;
+      text += `${"=".repeat(60)}\n\n`;
+      text += `${patient.nom.toUpperCase()} ${patient.prenom}\n`;
+
+      if (patient.sexe) {
+        text += `Sexe: ${patient.sexe}\n`;
+      }
+      if (patient.date_naissance) {
+        text += `Date de naissance: ${formatDate(patient.date_naissance)}\n`;
+        text += `Âge: ${calculateAge(patient.date_naissance)}\n`;
+      }
+      if (patient.telephone) {
+        text += `Téléphone: ${patient.telephone}\n`;
+      }
+      if (patient.email) {
+        text += `Email: ${patient.email}\n`;
+      }
+      if (patient.adresse) {
+        text += `Adresse: ${patient.adresse}\n`;
+      }
+      if (patient.secteur) {
+        text += `Secteur: ${patient.secteur}\n`;
+      }
+
+      if (patient.notes) {
+        text += `\nNOTES:\n${patient.notes}\n`;
+      }
+
+      if (patient.resume_ia) {
+        text += `\nRÉSUMÉ:\n${patient.resume_ia}\n`;
+      }
+
+      text += `\n${"=".repeat(60)}\n`;
+      text += `OBSERVATIONS (${observations?.length || 0})\n`;
+      text += `${"=".repeat(60)}\n\n`;
+
+      if (!observations || observations.length === 0) {
+        text += "Aucune observation enregistrée.\n";
+      } else {
+        // Sort observations by date (most recent first)
+        const sortedObs = [...observations].sort((a, b) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        sortedObs.forEach((obs, index) => {
+          text += `${index + 1}. ${formatDate(obs.date)} - ${getObservationTypeLabel(obs.type_observation)}\n`;
+
+          if (obs.age_patient_jours !== undefined) {
+            const years = Math.floor(obs.age_patient_jours / 365);
+            const months = Math.floor((obs.age_patient_jours % 365) / 30);
+            const days = obs.age_patient_jours % 30;
+
+            if (years > 0) {
+              text += `   Âge: ${years} an${years > 1 ? 's' : ''}`;
+              if (months > 0) text += ` ${months} mois`;
+              text += `\n`;
+            } else if (months > 0) {
+              text += `   Âge: ${months} mois`;
+              if (days > 0) text += ` ${days} jours`;
+              text += `\n`;
+            } else {
+              text += `   Âge: ${days} jour${days > 1 ? 's' : ''}\n`;
+            }
+          }
+
+          if (obs.contenu) {
+            text += `\n   ${obs.contenu.split('\n').join('\n   ')}\n`;
+          }
+          text += `\n${"-".repeat(40)}\n\n`;
+        });
+      }
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(text);
+      alert("Dossier patient copié dans le presse-papier !");
+    } catch (error) {
+      console.error("Erreur lors de l'export:", error);
+      alert("Erreur lors de la copie dans le presse-papier");
+    }
+  };
+
   return (
     <div className="h-full overflow-auto">
       {/* Header with coordinates */}
@@ -245,6 +332,10 @@ export function PatientCard({ patientId }: PatientCardProps) {
             <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>
               <Edit className="mr-1 h-3 w-3" />
               Modifier
+            </Button>
+            <Button variant="secondary" size="sm" onClick={handleExportPatient}>
+              <Download className="mr-1 h-3 w-3" />
+              Exporter
             </Button>
             <Button
               variant="danger"

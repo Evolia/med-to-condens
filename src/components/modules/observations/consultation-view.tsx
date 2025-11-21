@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag, Download } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import {
   useConsultation,
@@ -11,11 +11,13 @@ import {
   useCreatePatient,
   useCreateObservation,
   useUpdateConsultation,
+  useDeleteConsultation,
 } from "@/hooks";
 import { TypeObservation } from "@/types";
 import { ObservationTable } from "./observation-table";
 import { ObservationForm } from "./observation-form";
 import { formatDate, calculateAgeInDays } from "@/lib/date-utils";
+import { useTabsStore } from "@/stores/tabs-store";
 
 // Normalize string: remove accents and convert to lowercase
 function normalizeString(str: string): string {
@@ -31,9 +33,8 @@ interface ConsultationViewProps {
 
 const typeOptions = [
   { value: "consultation", label: "Consultation" },
-  { value: "visite", label: "Visite" },
   { value: "reunion", label: "Reunion" },
-  { value: "staff", label: "Staff" },
+  { value: "contact", label: "Contact" },
   { value: "autre", label: "Autre" },
 ];
 
@@ -45,16 +46,56 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [creatingPatient, setCreatingPatient] = useState<string | null>(null);
 
   // Inline editing states
-  const [editingField, setEditingField] = useState<"titre" | "type" | "date" | null>(null);
+  const [editingField, setEditingField] = useState<"titre" | "type" | "date" | "tags" | null>(null);
   const [editValue, setEditValue] = useState("");
+  const editingContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: consultation, isLoading } = useConsultation(consultationId);
   const { data: observations } = useObservations({ consultationId });
+  const observationsRef = useRef(observations);
   const { data: patients } = usePatients();
   const createBulkObservations = useCreateBulkObservations();
   const createPatient = useCreatePatient();
   const createObservation = useCreateObservation();
   const updateConsultation = useUpdateConsultation();
+  const deleteConsultation = useDeleteConsultation();
+  const { updateTab } = useTabsStore();
+
+  // Update observations ref when observations change
+  useEffect(() => {
+    observationsRef.current = observations;
+  }, [observations]);
+
+  // Delete consultation if empty on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup function called when component unmounts
+      const currentObservations = observationsRef.current;
+      if (currentObservations && currentObservations.length === 0) {
+        // Delete consultation if it has no observations
+        deleteConsultation.mutate(consultationId);
+      }
+    };
+  }, [consultationId]);
+
+  // Handle click outside to auto-save
+  useEffect(() => {
+    const handleClickOutside = async (event: MouseEvent) => {
+      if (
+        editingField &&
+        editingContainerRef.current &&
+        !editingContainerRef.current.contains(event.target as Node)
+      ) {
+        // Auto-save and close
+        await handleSaveField();
+      }
+    };
+
+    if (editingField) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [editingField, editValue]);
 
   if (isLoading) {
     return (
@@ -72,13 +113,15 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     );
   }
 
-  const handleStartEdit = (field: "titre" | "type" | "date") => {
+  const handleStartEdit = (field: "titre" | "type" | "date" | "tags") => {
     if (field === "titre") {
       setEditValue(consultation.titre || "");
     } else if (field === "type") {
       setEditValue(consultation.type || "consultation");
     } else if (field === "date") {
       setEditValue(consultation.date);
+    } else if (field === "tags") {
+      setEditValue(consultation.tags || "");
     }
     setEditingField(field);
   };
@@ -93,6 +136,14 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
       id: consultationId,
       ...updates,
     });
+
+    // Update tab title if titre was modified
+    if (editingField === "titre") {
+      updateTab(`consultation-${consultationId}`, {
+        title: editValue,
+      });
+    }
+
     setEditingField(null);
     setEditValue("");
   };
@@ -117,21 +168,45 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     const notFoundNames: string[] = [];
 
     for (const name of names) {
-      // Try to find matching patient (case and accent insensitive)
+      // Try to find matching patient with stricter logic
       const normalizedName = normalizeString(name);
-      const nameParts = normalizedName.split(/\s+/);
-      const matchedPatient = patients.find((p) => {
-        const patientNom = normalizeString(p.nom);
-        const patientPrenom = normalizeString(p.prenom);
 
-        return nameParts.some(
-          (part) =>
-            patientNom.includes(part) ||
-            patientPrenom.includes(part) ||
-            `${patientNom} ${patientPrenom}`.includes(normalizedName) ||
-            `${patientPrenom} ${patientNom}`.includes(normalizedName)
-        );
+      // First: try exact full name match (nom prenom or prenom nom)
+      let matchedPatient = patients.find((p) => {
+        const patientFullName1 = normalizeString(`${p.nom} ${p.prenom}`);
+        const patientFullName2 = normalizeString(`${p.prenom} ${p.nom}`);
+        return patientFullName1 === normalizedName || patientFullName2 === normalizedName;
       });
+
+      // Second: try partial match but require at least 2 matching parts or single exact nom match
+      if (!matchedPatient) {
+        const nameParts = normalizedName.split(/\s+/);
+
+        if (nameParts.length === 1) {
+          // Single word: only match if it's an exact nom match
+          matchedPatient = patients.find((p) => normalizeString(p.nom) === nameParts[0]);
+        } else {
+          // Multiple words: try to match all parts
+          const candidates = patients.filter((p) => {
+            const patientNom = normalizeString(p.nom);
+            const patientPrenom = normalizeString(p.prenom);
+
+            // Check if all name parts are found in patient name
+            return nameParts.every(part =>
+              patientNom.includes(part) || patientPrenom.includes(part)
+            );
+          });
+
+          // If multiple candidates, choose the best match (shortest full name = closest match)
+          if (candidates.length > 0) {
+            matchedPatient = candidates.reduce((best, current) => {
+              const bestLen = (best.nom + best.prenom).length;
+              const currentLen = (current.nom + current.prenom).length;
+              return currentLen < bestLen ? current : best;
+            });
+          }
+        }
+      }
 
       if (matchedPatient) {
         let ageInDays: number | undefined;
@@ -213,6 +288,120 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     setUnmatchedNames((prev) => prev.filter((n) => n !== name));
   };
 
+  const findSimilarPatients = (name: string) => {
+    if (!patients) return [];
+
+    const normalizedName = normalizeString(name);
+    const nameParts = normalizedName.split(/\s+/);
+
+    // Find patients where at least one name part matches
+    const similar = patients.filter((p) => {
+      const patientNom = normalizeString(p.nom);
+      const patientPrenom = normalizeString(p.prenom);
+
+      return nameParts.some(part =>
+        patientNom.includes(part) || patientPrenom.includes(part) ||
+        part.includes(patientNom) || part.includes(patientPrenom)
+      );
+    });
+
+    // Limit to 3 suggestions
+    return similar.slice(0, 3);
+  };
+
+  const handleSelectSimilarPatient = async (name: string, patientId: string) => {
+    if (!consultation) return;
+
+    try {
+      const patient = patients?.find(p => p.id === patientId);
+      if (!patient) return;
+
+      let ageInDays: number | undefined;
+      if (patient.date_naissance) {
+        ageInDays = calculateAgeInDays(patient.date_naissance, consultation.date);
+      }
+
+      await createObservation.mutateAsync({
+        patient_id: patientId,
+        consultation_id: consultationId,
+        date: consultation.date,
+        type_observation: TypeObservation.CONSULTATION,
+        contenu: "",
+        age_patient_jours: ageInDays,
+      });
+
+      // Remove from unmatched list
+      setUnmatchedNames((prev) => prev.filter((n) => n !== name));
+    } catch (error) {
+      console.error("Error creating observation:", error);
+      alert("Erreur lors de la création de l'observation");
+    }
+  };
+
+  const handleExportText = async () => {
+    if (!consultation || !observations) return;
+
+    try {
+      // Build the text report
+      let text = `${consultation.titre || `Consultation du ${formatDate(consultation.date)}`}\n`;
+      text += `Type: ${consultation.type || "consultation"}\n`;
+      text += `Date: ${formatDate(consultation.date)}\n`;
+      if (consultation.tags) {
+        text += `Tags: ${consultation.tags}\n`;
+      }
+      text += `\n${"=".repeat(60)}\n\n`;
+
+      if (observations.length === 0) {
+        text += "Aucune observation enregistrée.\n";
+      } else {
+        observations.forEach((obs, index) => {
+          if (obs.patient) {
+            text += `${index + 1}. ${obs.patient.nom.toUpperCase()} ${obs.patient.prenom}\n`;
+
+            if (obs.age_patient_jours !== undefined) {
+              const years = Math.floor(obs.age_patient_jours / 365);
+              const months = Math.floor((obs.age_patient_jours % 365) / 30);
+              const days = obs.age_patient_jours % 30;
+
+              if (years > 0) {
+                text += `   Âge: ${years} an${years > 1 ? 's' : ''}`;
+                if (months > 0) text += ` ${months} mois`;
+                text += `\n`;
+              } else if (months > 0) {
+                text += `   Âge: ${months} mois`;
+                if (days > 0) text += ` ${days} jours`;
+                text += `\n`;
+              } else {
+                text += `   Âge: ${days} jour${days > 1 ? 's' : ''}\n`;
+              }
+            }
+
+            if (obs.patient.secteur) {
+              text += `   Secteur: ${obs.patient.secteur}\n`;
+            }
+
+            if (obs.contenu) {
+              text += `\n   ${obs.contenu.split('\n').join('\n   ')}\n`;
+            }
+          } else {
+            text += `${index + 1}. [Patient inconnu]\n`;
+            if (obs.contenu) {
+              text += `\n   ${obs.contenu.split('\n').join('\n   ')}\n`;
+            }
+          }
+          text += `\n${"-".repeat(40)}\n\n`;
+        });
+      }
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(text);
+      alert("Rapport copié dans le presse-papier !");
+    } catch (error) {
+      console.error("Erreur lors de l'export:", error);
+      alert("Erreur lors de la copie dans le presse-papier");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -221,7 +410,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           <div className="flex-1">
             {/* Title */}
             {editingField === "titre" ? (
-              <div className="flex items-center gap-2">
+              <div ref={editingContainerRef} className="flex items-center gap-2">
                 <input
                   type="text"
                   value={editValue}
@@ -254,7 +443,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
             <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
               {/* Type */}
               {editingField === "type" ? (
-                <div className="flex items-center gap-1">
+                <div ref={editingContainerRef} className="flex items-center gap-1">
                   <select
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
@@ -288,7 +477,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
 
               {/* Date */}
               {editingField === "date" ? (
-                <div className="flex items-center gap-1">
+                <div ref={editingContainerRef} className="flex items-center gap-1">
                   <input
                     type="date"
                     value={editValue}
@@ -314,11 +503,67 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
                 </span>
               )}
             </div>
+
+            {/* Tags */}
+            <div className="mt-2">
+              {editingField === "tags" ? (
+                <div ref={editingContainerRef} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    placeholder="Separez par des virgules"
+                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveField();
+                      if (e.key === "Escape") handleCancelEdit();
+                    }}
+                  />
+                  <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : consultation.tags ? (
+                <div
+                  onClick={() => handleStartEdit("tags")}
+                  className="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1"
+                  title="Cliquez pour modifier"
+                >
+                  {consultation.tags.split(",").map((tag, i) => (
+                    <span key={i} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                      {tag.trim()}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleStartEdit("tags")}
+                  className="text-gray-400 hover:text-gray-600 text-xs flex items-center gap-1"
+                >
+                  <Tag className="h-3 w-3" />
+                  Ajouter des tags
+                </button>
+              )}
+            </div>
           </div>
-          <Button onClick={() => setShowNewObservation(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle observation
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleExportText}
+              title="Exporter en texte"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exporter
+            </Button>
+            <Button onClick={() => setShowNewObservation(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle observation
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -356,32 +601,54 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           <p className="mb-2 text-sm font-medium text-yellow-800">
             {unmatchedNames.length} patient(s) non trouve(s) :
           </p>
-          <div className="space-y-2">
-            {unmatchedNames.map((name) => (
-              <div
-                key={name}
-                className="flex items-center justify-between rounded-md bg-white px-3 py-2 shadow-sm"
-              >
-                <span className="text-sm text-gray-700">{name}</span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handleCreatePatient(name)}
-                    isLoading={creatingPatient === name}
-                  >
-                    <UserPlus className="mr-1 h-3 w-3" />
-                    Creer
-                  </Button>
-                  <button
-                    onClick={() => handleDismissUnmatched(name)}
-                    className="p-1 text-gray-400 hover:text-gray-600"
-                    title="Ignorer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+          <div className="space-y-3">
+            {unmatchedNames.map((name) => {
+              const similarPatients = findSimilarPatients(name);
+              return (
+                <div
+                  key={name}
+                  className="rounded-md bg-white p-3 shadow-sm"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">{name}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleCreatePatient(name)}
+                        isLoading={creatingPatient === name}
+                      >
+                        <UserPlus className="mr-1 h-3 w-3" />
+                        Creer nouveau
+                      </Button>
+                      <button
+                        onClick={() => handleDismissUnmatched(name)}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Ignorer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {similarPatients.length > 0 && (
+                    <div className="pl-2 border-l-2 border-blue-200">
+                      <p className="text-xs text-gray-500 mb-1">Patients similaires :</p>
+                      <div className="space-y-1">
+                        {similarPatients.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => handleSelectSimilarPatient(name, p.id)}
+                            className="block w-full text-left px-2 py-1 text-xs rounded hover:bg-blue-50 text-blue-700"
+                          >
+                            {p.nom} {p.prenom}
+                            {p.date_naissance && ` (${formatDate(p.date_naissance)})`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

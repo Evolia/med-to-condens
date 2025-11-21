@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderOpen, ClipboardList, CheckSquare, LogOut } from "lucide-react";
+import { FolderOpen, ClipboardList, CheckSquare, LogOut, Search } from "lucide-react";
 import { ModuleType } from "@/types";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 interface MainNavigationProps {
   activeModule: ModuleType;
   onModuleChange: (module: ModuleType) => void;
+  onSearchClick?: () => void;
 }
 
 const modules = [
@@ -32,6 +33,7 @@ const modules = [
 export function MainNavigation({
   activeModule,
   onModuleChange,
+  onSearchClick,
 }: MainNavigationProps) {
   const router = useRouter();
   const supabase = createBrowserClient();
@@ -44,9 +46,17 @@ export function MainNavigation({
   return (
     <nav className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4">
       <div className="flex items-center gap-1">
-        <span className="mr-4 text-lg font-semibold text-gray-900">
-          MedCondens
-        </span>
+        {onSearchClick && (
+          <button
+            onClick={onSearchClick}
+            className="flex items-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:border-gray-400"
+            title="Recherche globale (Ctrl+K)"
+          >
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline">Rechercher...</span>
+            <span className="hidden sm:inline text-xs text-gray-400 ml-2">⌘K</span>
+          </button>
+        )}
         {modules.map((module) => {
           const Icon = module.icon;
           const isActive = activeModule === module.id;

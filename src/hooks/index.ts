@@ -50,3 +50,14 @@ export { useGenerateSummary, useAnalyzeMail } from "./use-ai";
 
 // Realtime
 export { useRealtimeSync, RealtimeProvider } from "./use-realtime";
+
+// Work Sessions
+export {
+  useWorkSessions,
+  useActiveWorkSessions,
+  useWorkSession,
+  useCreateWorkSession,
+  useUpdateWorkSession,
+  useCompleteWorkSession,
+  useDeleteWorkSession,
+} from "./use-work-sessions";

@@ -64,6 +64,7 @@ export interface Consultation {
   date: string;
   type?: string;
   titre?: string;
+  tags?: string;
   created_at?: string;
 }
 
@@ -86,12 +87,14 @@ export interface Todo {
   id: string;
   user_id?: string;
   observation_id?: string;
-  patient_id: string;
+  patient_id?: string;
+  work_session_id?: string;
   contenu: string;
   type_todo: TypeTodo;
   urgence: UrgenceTodo;
   date_echeance?: string;
   annotations?: string;
+  tags?: string;
   completed: boolean;
   completed_at?: string;
   created_at?: string;
@@ -99,17 +102,30 @@ export interface Todo {
   // Relations (populated on fetch)
   patient?: Patient;
   observation?: Observation;
+  work_session?: WorkSession;
+}
+
+export interface WorkSession {
+  id: string;
+  user_id?: string;
+  name: string;
+  date?: string;
+  description?: string;
+  completed: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Tab system
 export interface Tab {
   id: string;
-  type: "patient" | "consultation" | "todo" | "list" | "new";
+  type: "patient" | "consultation" | "todo" | "list" | "new" | "work-session";
   module: ModuleType;
   title: string;
   data?: {
     patientId?: string;
     consultationId?: string;
+    workSessionId?: string;
     todoId?: string;
     filters?: Record<string, unknown>;
   };
