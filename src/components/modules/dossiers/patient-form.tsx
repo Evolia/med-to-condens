@@ -39,10 +39,16 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
     try {
       let result: Patient;
 
-      // Clean up secteur data (trim extra spaces)
+      // Clean up data - convert empty strings to undefined
       const cleanedData = {
         ...formData,
+        sexe: formData.sexe || undefined,
+        date_naissance: formData.date_naissance || undefined,
+        telephone: formData.telephone || undefined,
+        email: formData.email || undefined,
+        adresse: formData.adresse || undefined,
         secteur: formData.secteur ? formData.secteur.split(',').map(s => s.trim()).join(', ') : undefined,
+        notes: formData.notes || undefined,
       };
 
       if (isEditing) {

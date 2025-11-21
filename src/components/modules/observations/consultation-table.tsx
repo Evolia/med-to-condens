@@ -2,16 +2,17 @@
 
 import { useState, useMemo } from "react";
 import { Trash2, ArrowUpDown, FolderOpen, Tag } from "lucide-react";
-import { Consultation, ModuleType } from "@/types";
+import { Consultation, ModuleType, Observation } from "@/types";
 import { useDeleteConsultation, useUpdateConsultation } from "@/hooks";
 import { formatDate } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
 
-type SortField = "titre" | "date" | "type" | "tags";
+type SortField = "titre" | "date" | "type" | "tags" | "secteurs";
 type SortDirection = "asc" | "desc";
 
 interface ConsultationTableProps {
   consultations: Consultation[];
+  observations?: Observation[];
 }
 
 const typeLabels: Record<string, string> = {
@@ -21,7 +22,7 @@ const typeLabels: Record<string, string> = {
   autre: "Autre",
 };
 
-export function ConsultationTable({ consultations }: ConsultationTableProps) {
+export function ConsultationTable({ consultations, observations = [] }: ConsultationTableProps) {
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
@@ -30,6 +31,33 @@ export function ConsultationTable({ consultations }: ConsultationTableProps) {
   const deleteConsultation = useDeleteConsultation();
   const updateConsultation = useUpdateConsultation();
   const { addTab } = useTabsStore();
+
+  // Calculate sectors per consultation from observations
+  const secteursByConsultation = useMemo(() => {
+    const result: Record<string, string[]> = {};
+
+    observations.forEach((obs) => {
+      if (obs.consultation_id && obs.patient?.secteur) {
+        if (!result[obs.consultation_id]) {
+          result[obs.consultation_id] = [];
+        }
+        // Add unique sectors from this patient
+        obs.patient.secteur.split(",").forEach((s) => {
+          const trimmed = s.trim();
+          if (trimmed && !result[obs.consultation_id].includes(trimmed)) {
+            result[obs.consultation_id].push(trimmed);
+          }
+        });
+      }
+    });
+
+    // Sort sectors alphabetically
+    Object.keys(result).forEach((id) => {
+      result[id].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    });
+
+    return result;
+  }, [observations]);
 
   // Sort consultations
   const sortedConsultations = useMemo(() => {
@@ -55,11 +83,16 @@ export function ConsultationTable({ consultations }: ConsultationTableProps) {
           const tagsB = b.tags || "";
           comparison = tagsA.localeCompare(tagsB);
           break;
+        case "secteurs":
+          const secteursA = (secteursByConsultation[a.id] || []).join(", ");
+          const secteursB = (secteursByConsultation[b.id] || []).join(", ");
+          comparison = secteursA.localeCompare(secteursB);
+          break;
       }
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [consultations, sortField, sortDirection]);
+  }, [consultations, sortField, sortDirection, secteursByConsultation]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -143,6 +176,7 @@ export function ConsultationTable({ consultations }: ConsultationTableProps) {
             <SortHeader field="titre">Titre</SortHeader>
             <SortHeader field="date">Date</SortHeader>
             <SortHeader field="type">Type</SortHeader>
+            <SortHeader field="secteurs">Secteurs</SortHeader>
             <SortHeader field="tags">Tags</SortHeader>
             <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
           </tr>
@@ -164,6 +198,19 @@ export function ConsultationTable({ consultations }: ConsultationTableProps) {
                 <span className="rounded bg-gray-100 px-2 py-0.5 text-xs">
                   {typeLabels[consultation.type || "consultation"] || consultation.type}
                 </span>
+              </td>
+              <td className="px-4 py-3">
+                {secteursByConsultation[consultation.id]?.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {secteursByConsultation[consultation.id].map((secteur, i) => (
+                      <span key={i} className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                        {secteur}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400 text-xs">-</span>
+                )}
               </td>
               <td className="px-4 py-3">
                 {editingTagsId === consultation.id ? (

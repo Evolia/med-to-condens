@@ -6,7 +6,7 @@ import { useAuth } from "./use-auth";
 
 const TAGS_KEY = "tags";
 
-export type TagSource = "sectors" | "consultation-tags" | "todo-tags";
+export type TagSource = "sectors" | "consultation-tags" | "todo-tags" | "work-session-tags";
 
 // Hook to get unique tags from a specific source
 export function useTags(source: TagSource) {
@@ -54,6 +54,18 @@ export function useTags(source: TagSource) {
           data = result.data || [];
           break;
         }
+
+        case "work-session-tags": {
+          const result = await supabase
+            .from("work_sessions")
+            .select("tags")
+            .not("tags", "is", null)
+            .not("tags", "eq", "");
+
+          if (result.error) throw result.error;
+          data = result.data || [];
+          break;
+        }
       }
 
       // Extract unique tags
@@ -89,4 +101,8 @@ export function useConsultationTags() {
 
 export function useTodoTags() {
   return useTags("todo-tags");
+}
+
+export function useWorkSessionTags() {
+  return useTags("work-session-tags");
 }

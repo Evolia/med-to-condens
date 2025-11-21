@@ -78,6 +78,24 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
   const { data: todoTags = [] } = useTodoTags();
 
   const sessionDropdownRef = useRef<HTMLDivElement>(null);
+  const editFormRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to save and close edit mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        editFormRef.current &&
+        !editFormRef.current.contains(event.target as Node)
+      ) {
+        handleSaveEdit();
+      }
+    };
+
+    if (isEditing) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isEditing, editData]);
 
   const handleStartEdit = () => {
     setEditData({
@@ -212,7 +230,7 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
           )}
 
           {isEditing ? (
-            <div className="space-y-3">
+            <div ref={editFormRef} className="space-y-3">
               <textarea
                 value={editData.contenu}
                 onChange={(e) => setEditData({ ...editData, contenu: e.target.value })}

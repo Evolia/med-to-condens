@@ -2,11 +2,37 @@
 
 import { useState } from "react";
 import { Calendar, Plus, Trash2, CheckCircle2, Circle, X } from "lucide-react";
-import { useWorkSessions, useCreateWorkSession, useDeleteWorkSession } from "@/hooks";
+import { useWorkSessions, useCreateWorkSession, useDeleteWorkSession, useWorkSessionsStats, SessionStats, useWorkSessionTags } from "@/hooks";
 import { formatDate } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
 import { ModuleType } from "@/types";
-import { Button } from "@/components/ui";
+import { Button, TagInput } from "@/components/ui";
+
+// Completion badge component
+function CompletionBadge({ stats }: { stats: SessionStats | undefined }) {
+  if (!stats || stats.total === 0) {
+    return (
+      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+        0 taches
+      </span>
+    );
+  }
+
+  const percentage = Math.round((stats.completed / stats.total) * 100);
+
+  let colorClasses = "bg-yellow-100 text-yellow-700"; // In progress
+  if (percentage === 0) {
+    colorClasses = "bg-blue-100 text-blue-700"; // Not started
+  } else if (percentage === 100) {
+    colorClasses = "bg-green-100 text-green-700"; // Completed
+  }
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs ${colorClasses}`}>
+      {stats.completed}/{stats.total} ({percentage}%)
+    </span>
+  );
+}
 
 export function WorkSessionsList() {
   const [showForm, setShowForm] = useState(false);
@@ -14,9 +40,12 @@ export function WorkSessionsList() {
     name: "",
     date: new Date().toISOString().split("T")[0],
     description: "",
+    tags: "",
   });
 
   const { data: sessions = [], isLoading } = useWorkSessions();
+  const { data: sessionStats = {} } = useWorkSessionsStats();
+  const { data: workSessionTags = [] } = useWorkSessionTags();
   const createSession = useCreateWorkSession();
   const deleteSession = useDeleteWorkSession();
   const { addTab } = useTabsStore();
@@ -33,11 +62,13 @@ export function WorkSessionsList() {
         name: formData.name,
         date: formData.date || undefined,
         description: formData.description || undefined,
+        tags: formData.tags || undefined,
       });
       setFormData({
         name: "",
         date: new Date().toISOString().split("T")[0],
         description: "",
+        tags: "",
       });
       setShowForm(false);
     } catch (error) {
@@ -137,6 +168,14 @@ export function WorkSessionsList() {
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 />
               </div>
+              <TagInput
+                value={formData.tags}
+                onChange={(value) => setFormData({ ...formData, tags: value })}
+                suggestions={workSessionTags}
+                label="Tags"
+                placeholder="Tags..."
+                color="green"
+              />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -173,9 +212,12 @@ export function WorkSessionsList() {
                     onClick={() => handleOpenSession(session.id, session.name)}
                     className="flex-1 text-left"
                   >
-                    <h4 className="font-medium text-gray-900 hover:text-blue-600">
-                      {session.name}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-gray-900 hover:text-blue-600">
+                        {session.name}
+                      </h4>
+                      <CompletionBadge stats={sessionStats[session.id]} />
+                    </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                       {session.date && (
                         <span className="flex items-center gap-1">
@@ -184,6 +226,15 @@ export function WorkSessionsList() {
                         </span>
                       )}
                     </div>
+                    {session.tags && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {session.tags.split(",").map((tag, i) => (
+                          <span key={i} className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {session.description && (
                       <p className="mt-1 text-sm text-gray-600">{session.description}</p>
                     )}
@@ -218,9 +269,12 @@ export function WorkSessionsList() {
                     onClick={() => handleOpenSession(session.id, session.name)}
                     className="flex-1 text-left"
                   >
-                    <h4 className="font-medium text-gray-700 hover:text-blue-600">
-                      {session.name}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-gray-700 hover:text-blue-600">
+                        {session.name}
+                      </h4>
+                      <CompletionBadge stats={sessionStats[session.id]} />
+                    </div>
                     <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
                       {session.date && (
                         <span className="flex items-center gap-1">
@@ -229,6 +283,15 @@ export function WorkSessionsList() {
                         </span>
                       )}
                     </div>
+                    {session.tags && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {session.tags.split(",").map((tag, i) => (
+                          <span key={i} className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {session.description && (
                       <p className="mt-1 text-sm text-gray-600">{session.description}</p>
                     )}

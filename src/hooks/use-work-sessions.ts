@@ -2,10 +2,51 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createBrowserClient } from "@/lib/supabase/client";
-import { WorkSession } from "@/types";
+import { WorkSession, Todo } from "@/types";
 import { useAuth } from "./use-auth";
 
 const WORK_SESSIONS_KEY = "work_sessions";
+const TAGS_KEY = "tags";
+
+export interface SessionStats {
+  total: number;
+  completed: number;
+}
+
+// Hook to get todo stats for all sessions at once
+export function useWorkSessionsStats() {
+  const { user } = useAuth();
+  const supabase = createBrowserClient();
+
+  return useQuery({
+    queryKey: [WORK_SESSIONS_KEY, "stats"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("todos")
+        .select("work_session_id, completed")
+        .not("work_session_id", "is", null);
+
+      if (error) throw error;
+
+      // Group by session and calculate stats
+      const stats: Record<string, SessionStats> = {};
+      (data as Pick<Todo, "work_session_id" | "completed">[]).forEach((todo) => {
+        if (!todo.work_session_id) return;
+
+        if (!stats[todo.work_session_id]) {
+          stats[todo.work_session_id] = { total: 0, completed: 0 };
+        }
+        stats[todo.work_session_id].total += 1;
+        if (todo.completed) {
+          stats[todo.work_session_id].completed += 1;
+        }
+      });
+
+      return stats;
+    },
+    enabled: !!user,
+  });
+}
 
 export function useWorkSessions(filters?: { completed?: boolean }) {
   const { user } = useAuth();
@@ -81,8 +122,12 @@ export function useCreateWorkSession() {
       if (error) throw error;
       return data as WorkSession;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [WORK_SESSIONS_KEY] });
+      // Invalidate tags cache if session has tags
+      if (data.tags) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "work-session-tags"] });
+      }
     },
   });
 }
@@ -106,6 +151,10 @@ export function useUpdateWorkSession() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [WORK_SESSIONS_KEY] });
       queryClient.invalidateQueries({ queryKey: [WORK_SESSIONS_KEY, data.id] });
+      // Invalidate tags cache if session has tags
+      if (data.tags) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "work-session-tags"] });
+      }
     },
   });
 }
