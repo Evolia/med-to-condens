@@ -66,7 +66,9 @@ export function ObservationTable({
     if (!allTodos) return {};
     const map: Record<string, number> = {};
     allTodos.forEach((todo) => {
-      map[todo.patient_id] = (map[todo.patient_id] || 0) + 1;
+      if (todo.patient_id) {
+        map[todo.patient_id] = (map[todo.patient_id] || 0) + 1;
+      }
     });
     return map;
   }, [allTodos]);
