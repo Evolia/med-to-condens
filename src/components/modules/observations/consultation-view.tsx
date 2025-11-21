@@ -11,6 +11,7 @@ import {
   useCreatePatient,
   useCreateObservation,
   useUpdateConsultation,
+  useDeleteConsultation,
 } from "@/hooks";
 import { TypeObservation } from "@/types";
 import { ObservationTable } from "./observation-table";
@@ -48,6 +49,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [editingField, setEditingField] = useState<"titre" | "type" | "date" | "tags" | null>(null);
   const [editValue, setEditValue] = useState("");
   const editingContainerRef = useRef<HTMLDivElement>(null);
+  const observationsRef = useRef(observations);
 
   const { data: consultation, isLoading } = useConsultation(consultationId);
   const { data: observations } = useObservations({ consultationId });
@@ -56,7 +58,25 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const createPatient = useCreatePatient();
   const createObservation = useCreateObservation();
   const updateConsultation = useUpdateConsultation();
+  const deleteConsultation = useDeleteConsultation();
   const { updateTab } = useTabsStore();
+
+  // Update observations ref when observations change
+  useEffect(() => {
+    observationsRef.current = observations;
+  }, [observations]);
+
+  // Delete consultation if empty on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup function called when component unmounts
+      const currentObservations = observationsRef.current;
+      if (currentObservations && currentObservations.length === 0) {
+        // Delete consultation if it has no observations
+        deleteConsultation.mutate(consultationId);
+      }
+    };
+  }, [consultationId]);
 
   // Handle click outside to auto-save
   useEffect(() => {
