@@ -38,14 +38,15 @@ export function ConsultationTable({ consultations, observations = [] }: Consulta
 
     observations.forEach((obs) => {
       if (obs.consultation_id && obs.patient?.secteur) {
-        if (!result[obs.consultation_id]) {
-          result[obs.consultation_id] = [];
+        const consultationId = obs.consultation_id;
+        if (!result[consultationId]) {
+          result[consultationId] = [];
         }
         // Add unique sectors from this patient
         obs.patient.secteur.split(",").forEach((s) => {
           const trimmed = s.trim();
-          if (trimmed && !result[obs.consultation_id].includes(trimmed)) {
-            result[obs.consultation_id].push(trimmed);
+          if (trimmed && !result[consultationId].includes(trimmed)) {
+            result[consultationId].push(trimmed);
           }
         });
       }
