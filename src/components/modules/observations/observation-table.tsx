@@ -55,6 +55,8 @@ export function ObservationTable({
   const typeFilterRef = useRef<HTMLDivElement>(null);
   const dateFilterRef = useRef<HTMLDivElement>(null);
 
+  const editContentRef = useRef<HTMLDivElement>(null);
+
   const deleteObservation = useDeleteObservation();
   const updateObservation = useUpdateObservation();
   const { data: allTodos } = useTodos({ completed: false });
@@ -97,6 +99,25 @@ export function ObservationTable({
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showSecteurFilter, showTypeFilter, showDateFilter]);
+
+  // Save and close edit on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        editContentRef.current &&
+        !editContentRef.current.contains(event.target as Node)
+      ) {
+        if (editingId) {
+          handleSave(editingId);
+        }
+      }
+    };
+
+    if (editingId) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [editingId, editContent]);
 
   // Get unique secteurs from observations
   const uniqueSecteurs = useMemo(() => {
@@ -560,13 +581,16 @@ export function ObservationTable({
               </td>
               <td className="max-w-md px-4 py-3">
                 {editingId === obs.id ? (
-                  <div className="flex items-center gap-2">
+                  <div ref={editContentRef} className="flex items-center gap-2">
                     <textarea
                       value={editContent}
                       onChange={(e) => setEditContent(e.target.value)}
                       className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
                       rows={2}
                       autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") handleCancel();
+                      }}
                     />
                     <button
                       onClick={() => handleSave(obs.id)}

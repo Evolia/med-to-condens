@@ -8,28 +8,52 @@ import { useTabsStore } from "@/stores/tabs-store";
 import { ModuleType } from "@/types";
 import { Button, TagInput } from "@/components/ui";
 
-// Completion badge component
-function CompletionBadge({ stats }: { stats: SessionStats | undefined }) {
+// Get color classes based on completion stats
+function getCompletionColors(stats: SessionStats | undefined) {
   if (!stats || stats.total === 0) {
-    return (
-      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-        0 taches
-      </span>
-    );
+    return {
+      border: "border-gray-200",
+      bg: "bg-white",
+      text: "text-gray-500",
+    };
   }
 
   const percentage = Math.round((stats.completed / stats.total) * 100);
 
-  let colorClasses = "bg-yellow-100 text-yellow-700"; // In progress
-  if (percentage === 0) {
-    colorClasses = "bg-blue-100 text-blue-700"; // Not started
-  } else if (percentage === 100) {
-    colorClasses = "bg-green-100 text-green-700"; // Completed
+  if (percentage === 100) {
+    return {
+      border: "border-green-200",
+      bg: "bg-green-50",
+      text: "text-green-700",
+    };
+  } else if (percentage === 0) {
+    return {
+      border: "border-blue-200",
+      bg: "bg-blue-50",
+      text: "text-blue-700",
+    };
+  } else {
+    return {
+      border: "border-yellow-200",
+      bg: "bg-yellow-50",
+      text: "text-yellow-700",
+    };
+  }
+}
+
+// Completion badge component
+function CompletionBadge({ stats }: { stats: SessionStats | undefined }) {
+  if (!stats || stats.total === 0) {
+    return (
+      <span className="text-xs text-gray-500">
+        0 tache
+      </span>
+    );
   }
 
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs ${colorClasses}`}>
-      {stats.completed}/{stats.total} ({percentage}%)
+    <span className="text-xs text-gray-600">
+      {stats.completed}/{stats.total}
     </span>
   );
 }
@@ -203,10 +227,12 @@ export function WorkSessionsList() {
               Sessions actives ({activeSessions.length})
             </h3>
             <div className="space-y-2">
-              {activeSessions.map((session) => (
+              {activeSessions.map((session) => {
+                const colors = getCompletionColors(sessionStats[session.id]);
+                return (
                 <div
                   key={session.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
+                  className={`flex items-center justify-between rounded-lg border ${colors.border} ${colors.bg} p-4 shadow-sm hover:shadow-md transition-shadow`}
                 >
                   <button
                     onClick={() => handleOpenSession(session.id, session.name)}
@@ -247,7 +273,8 @@ export function WorkSessionsList() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
         )}
