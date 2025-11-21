@@ -10,6 +10,8 @@ export {
   useUpdatePatient,
   useDeletePatient,
   useSectors,
+  useToggleFavoris,
+  useMergePatients,
 } from "./use-patients";
 
 // Observations

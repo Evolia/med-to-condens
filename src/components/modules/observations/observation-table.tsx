@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList, Calendar, AlertCircle, X, Filter, ChevronUp, ChevronDown } from "lucide-react";
+import { Edit, Trash2, ArrowUpDown, ClipboardList, Calendar, X, Filter, ChevronUp, ChevronDown } from "lucide-react";
 import { Observation, TypeObservation, Patient, ModuleType } from "@/types";
-import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
+import { useDeleteObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
 import { useAppModule } from "@/components/layout/use-app-module";
+import { ObservationForm } from "./observation-form";
 
 type SortField = "patient" | "secteur" | "age" | "date" | "type";
 type SortDirection = "asc" | "desc";
@@ -36,8 +37,6 @@ export function ObservationTable({
   observations,
   showPatient = true,
 }: ObservationTableProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [showTodosForPatient, setShowTodosForPatient] = useState<string | null>(null);
@@ -51,14 +50,14 @@ export function ObservationTable({
   const [showTypeFilter, setShowTypeFilter] = useState(false);
   const [showDateFilter, setShowDateFilter] = useState(false);
 
+  // Edit modal state
+  const [editingObservation, setEditingObservation] = useState<Observation | null>(null);
+
   const secteurFilterRef = useRef<HTMLDivElement>(null);
   const typeFilterRef = useRef<HTMLDivElement>(null);
   const dateFilterRef = useRef<HTMLDivElement>(null);
 
-  const editContentRef = useRef<HTMLDivElement>(null);
-
   const deleteObservation = useDeleteObservation();
-  const updateObservation = useUpdateObservation();
   const { data: allTodos } = useTodos({ completed: false });
   const { addTab } = useTabsStore();
   const { setActiveModule } = useAppModule();
@@ -99,25 +98,6 @@ export function ObservationTable({
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showSecteurFilter, showTypeFilter, showDateFilter]);
-
-  // Save and close edit on click outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        editContentRef.current &&
-        !editContentRef.current.contains(event.target as Node)
-      ) {
-        if (editingId) {
-          handleSave(editingId);
-        }
-      }
-    };
-
-    if (editingId) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [editingId, editContent]);
 
   // Get unique secteurs from observations
   const uniqueSecteurs = useMemo(() => {
@@ -272,21 +252,15 @@ export function ObservationTable({
   };
 
   const handleEdit = (obs: Observation) => {
-    setEditingId(obs.id);
-    setEditContent(obs.contenu || "");
+    setEditingObservation(obs);
   };
 
-  const handleSave = async (obsId: string) => {
-    await updateObservation.mutateAsync({
-      id: obsId,
-      contenu: editContent,
-    });
-    setEditingId(null);
+  const handleEditSuccess = () => {
+    setEditingObservation(null);
   };
 
-  const handleCancel = () => {
-    setEditingId(null);
-    setEditContent("");
+  const handleEditCancel = () => {
+    setEditingObservation(null);
   };
 
   const handleDelete = async (obsId: string) => {
@@ -331,7 +305,7 @@ export function ObservationTable({
   }
 
   return (
-    <div className="relative">
+    <div className="pb-48">
       {/* Active filters indicator */}
       {hasActiveFilters && (
         <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 border-b border-blue-100">
@@ -349,8 +323,7 @@ export function ObservationTable({
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
+      <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left">
           <tr>
             {showPatient && (
@@ -635,40 +608,9 @@ export function ObservationTable({
                 </span>
               </td>
               <td className="max-w-md px-4 py-3">
-                {editingId === obs.id ? (
-                  <div ref={editContentRef} className="flex items-center gap-2">
-                    <textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
-                      rows={2}
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") handleCancel();
-                      }}
-                    />
-                    <button
-                      onClick={() => handleSave(obs.id)}
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      <CheckSquare className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                ) : (
-                  <p
-                    onClick={() => handleEdit(obs)}
-                    className="line-clamp-2 text-gray-600 cursor-pointer hover:bg-gray-100 rounded px-1 -mx-1"
-                    title="Cliquez pour modifier"
-                  >
-                    {obs.contenu || <span className="text-gray-400 italic">Ajouter du contenu...</span>}
-                  </p>
-                )}
+                <p className="line-clamp-2 text-gray-600">
+                  {obs.contenu || <span className="text-gray-400 italic">-</span>}
+                </p>
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
@@ -690,7 +632,30 @@ export function ObservationTable({
           ))}
         </tbody>
       </table>
-      </div>
+
+      {/* Edit Modal */}
+      {editingObservation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h3 className="text-lg font-medium text-gray-900">
+                Modifier l&apos;observation
+              </h3>
+              <button
+                onClick={handleEditCancel}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <ObservationForm
+              observation={editingObservation}
+              onSuccess={handleEditSuccess}
+              onCancel={handleEditCancel}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
