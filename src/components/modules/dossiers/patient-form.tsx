@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Save, X } from "lucide-react";
+import { Save, X, ArrowLeftRight } from "lucide-react";
 import { Button, Input, SecteurInput } from "@/components/ui";
 import { useCreatePatient, useUpdatePatient } from "@/hooks";
 import { Patient } from "@/types";
@@ -76,15 +76,31 @@ export function PatientForm({ patient, onSuccess, onCancel }: PatientFormProps) 
     }
   };
 
+  const handleSwapNomPrenom = () => {
+    setFormData({
+      ...formData,
+      nom: formData.prenom,
+      prenom: formData.nom,
+    });
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6 p-6">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-end">
         <Input
           label="Nom"
           value={formData.nom}
           onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
           required
         />
+        <button
+          type="button"
+          onClick={handleSwapNomPrenom}
+          className="mb-2 p-2 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+          title="Inverser nom et prénom"
+        >
+          <ArrowLeftRight className="h-5 w-5" />
+        </button>
         <Input
           label="Prenom"
           value={formData.prenom}
