@@ -184,7 +184,7 @@ export function TagInput({
       )}
 
       {/* Dropdown */}
-      {isOpen && (filteredSuggestions.length > 0 || (suggestions.length > 0 && !inputValue)) && (
+      {isOpen && (filteredSuggestions.length > 0 || (suggestions.length > 0 && !inputValue) || inputValue.trim()) && (
         <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5">
           {filteredSuggestions.length > 0 ? (
             filteredSuggestions.map((suggestion) => (
@@ -197,9 +197,9 @@ export function TagInput({
                 {suggestion}
               </button>
             ))
-          ) : inputValue ? (
+          ) : inputValue.trim() ? (
             <div className="px-3 py-2 text-sm text-gray-500">
-              Appuyez sur Entree pour creer &quot;{inputValue}&quot;
+              Appuyez sur Entree pour creer &quot;{inputValue.trim()}&quot;
             </div>
           ) : (
             suggestions
