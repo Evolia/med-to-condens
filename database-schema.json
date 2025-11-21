@@ -1,0 +1,310 @@
+{
+  "database_name": "MedCondens",
+  "description": "Application medicale pour la gestion des patients, observations, consultations et taches",
+  "version": "1.0",
+
+  "enums": {
+    "type_observation": {
+      "description": "Types d'observations medicales",
+      "values": ["consultation", "suivi", "urgence", "telephone", "resultats", "courrier", "reunion", "note"],
+      "labels": {
+        "consultation": "Consultation",
+        "suivi": "Suivi",
+        "urgence": "Urgence",
+        "telephone": "Telephone",
+        "resultats": "Resultats",
+        "courrier": "Courrier",
+        "reunion": "Reunion",
+        "note": "Note"
+      }
+    },
+    "type_todo": {
+      "description": "Types de taches a faire",
+      "values": ["rappel", "prescription", "examen", "courrier", "rdv", "avis", "administratif", "autre"],
+      "labels": {
+        "rappel": "Rappel",
+        "prescription": "Prescription",
+        "examen": "Examen",
+        "courrier": "Courrier",
+        "rdv": "Rendez-vous",
+        "avis": "Avis specialiste",
+        "administratif": "Administratif",
+        "autre": "Autre"
+      }
+    },
+    "urgence_todo": {
+      "description": "Niveaux d'urgence des taches",
+      "values": ["basse", "normale", "haute", "critique"],
+      "order": "critique > haute > normale > basse"
+    },
+    "sexe_patient": {
+      "description": "Sexe du patient",
+      "values": ["M", "F", "autre"],
+      "labels": {
+        "M": "Masculin",
+        "F": "Feminin",
+        "autre": "Autre"
+      }
+    }
+  },
+
+  "tables": {
+    "patients": {
+      "description": "Dossiers patients",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "user_id": { "type": "UUID", "foreign_key": "auth.users.id", "required": true, "description": "Proprietaire du dossier" },
+        "nom": { "type": "TEXT", "required": true, "description": "Nom de famille" },
+        "prenom": { "type": "TEXT", "required": true, "description": "Prenom" },
+        "sexe": { "type": "sexe_patient", "required": false, "description": "Sexe (M/F/autre)" },
+        "date_naissance": { "type": "DATE", "required": false, "description": "Date de naissance" },
+        "telephone": { "type": "TEXT", "required": false, "description": "Numero de telephone" },
+        "email": { "type": "TEXT", "required": false, "description": "Adresse email" },
+        "adresse": { "type": "TEXT", "required": false, "description": "Adresse postale" },
+        "secteur": { "type": "TEXT", "required": false, "description": "Secteur medical/geographique (peut contenir plusieurs valeurs separees par virgule)" },
+        "notes": { "type": "TEXT", "required": false, "description": "Notes cliniques generales" },
+        "resume_ia": { "type": "TEXT", "required": false, "description": "Resume genere par IA" },
+        "resume_updated_at": { "type": "TIMESTAMPTZ", "required": false, "description": "Date de derniere mise a jour du resume IA" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true },
+        "updated_at": { "type": "TIMESTAMPTZ", "auto_updated": true }
+      },
+      "indexes": ["user_id", "nom", "prenom", "nom+prenom"],
+      "has_rls": true,
+      "has_realtime": true
+    },
+
+    "consultations": {
+      "description": "Sessions de consultation (regroupement d'observations)",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "user_id": { "type": "UUID", "foreign_key": "auth.users.id", "required": true },
+        "date": { "type": "DATE", "required": true, "default": "CURRENT_DATE", "description": "Date de la consultation" },
+        "type": { "type": "TEXT", "required": false, "description": "Type de consultation (ex: matin, apres-midi, reunion)" },
+        "titre": { "type": "TEXT", "required": false, "description": "Titre de la consultation" },
+        "tags": { "type": "TEXT", "required": false, "description": "Tags separes par virgule" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true }
+      },
+      "indexes": ["user_id", "date DESC"],
+      "has_rls": true,
+      "has_realtime": true
+    },
+
+    "observations": {
+      "description": "Observations medicales sur les patients",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "user_id": { "type": "UUID", "foreign_key": "auth.users.id", "required": true },
+        "patient_id": { "type": "UUID", "foreign_key": "patients.id", "required": true, "on_delete": "CASCADE", "description": "Patient concerne" },
+        "consultation_id": { "type": "UUID", "foreign_key": "consultations.id", "required": false, "on_delete": "SET NULL", "description": "Consultation associee (optionnel)" },
+        "date": { "type": "DATE", "required": true, "default": "CURRENT_DATE", "description": "Date de l'observation" },
+        "type_observation": { "type": "type_observation", "required": true, "default": "consultation", "description": "Type d'observation" },
+        "contenu": { "type": "TEXT", "required": false, "description": "Contenu/notes de l'observation" },
+        "age_patient_jours": { "type": "INTEGER", "required": false, "description": "Age du patient en jours au moment de l'observation" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true },
+        "updated_at": { "type": "TIMESTAMPTZ", "auto_updated": true }
+      },
+      "indexes": ["user_id", "patient_id", "consultation_id", "date DESC"],
+      "has_rls": true,
+      "has_realtime": true,
+      "relationships": {
+        "patient": { "table": "patients", "field": "patient_id", "type": "many_to_one" },
+        "consultation": { "table": "consultations", "field": "consultation_id", "type": "many_to_one" }
+      }
+    },
+
+    "work_sessions": {
+      "description": "Sessions de travail pour organiser les taches",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "user_id": { "type": "UUID", "foreign_key": "auth.users.id", "required": true },
+        "name": { "type": "TEXT", "required": true, "description": "Nom de la session" },
+        "date": { "type": "DATE", "required": false, "description": "Date de la session" },
+        "description": { "type": "TEXT", "required": false, "description": "Description de la session" },
+        "tags": { "type": "TEXT", "required": false, "description": "Tags separes par virgule" },
+        "completed": { "type": "BOOLEAN", "default": false, "description": "Session terminee" },
+        "completed_at": { "type": "TIMESTAMPTZ", "required": false, "description": "Date de completion" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true },
+        "updated_at": { "type": "TIMESTAMPTZ", "auto_updated": true }
+      },
+      "indexes": ["user_id", "completed", "date DESC"],
+      "has_rls": true,
+      "has_realtime": true
+    },
+
+    "todos": {
+      "description": "Taches a faire",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "user_id": { "type": "UUID", "foreign_key": "auth.users.id", "required": true },
+        "patient_id": { "type": "UUID", "foreign_key": "patients.id", "required": false, "on_delete": "CASCADE", "description": "Patient associe (optionnel)" },
+        "observation_id": { "type": "UUID", "foreign_key": "observations.id", "required": false, "on_delete": "SET NULL", "description": "Observation associee (optionnel)" },
+        "work_session_id": { "type": "UUID", "foreign_key": "work_sessions.id", "required": false, "on_delete": "SET NULL", "description": "Session de travail associee (optionnel)" },
+        "contenu": { "type": "TEXT", "required": true, "description": "Description de la tache" },
+        "type_todo": { "type": "type_todo", "required": true, "default": "autre", "description": "Type de tache" },
+        "urgence": { "type": "urgence_todo", "required": true, "default": "normale", "description": "Niveau d'urgence" },
+        "date_echeance": { "type": "DATE", "required": false, "description": "Date limite" },
+        "annotations": { "type": "TEXT", "required": false, "description": "Annotations supplementaires" },
+        "tags": { "type": "TEXT", "required": false, "description": "Tags separes par virgule" },
+        "completed": { "type": "BOOLEAN", "default": false, "description": "Tache terminee" },
+        "completed_at": { "type": "TIMESTAMPTZ", "required": false, "description": "Date de completion" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true },
+        "updated_at": { "type": "TIMESTAMPTZ", "auto_updated": true }
+      },
+      "indexes": ["user_id", "patient_id", "observation_id", "work_session_id", "completed", "urgence", "date_echeance"],
+      "has_rls": true,
+      "has_realtime": true,
+      "relationships": {
+        "patient": { "table": "patients", "field": "patient_id", "type": "many_to_one" },
+        "observation": { "table": "observations", "field": "observation_id", "type": "many_to_one" },
+        "work_session": { "table": "work_sessions", "field": "work_session_id", "type": "many_to_one" }
+      }
+    },
+
+    "mail_imports": {
+      "description": "Imports d'emails pour analyse",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "user_id": { "type": "UUID", "foreign_key": "auth.users.id", "required": true },
+        "patient_id": { "type": "UUID", "foreign_key": "patients.id", "required": false, "on_delete": "SET NULL", "description": "Patient associe (optionnel)" },
+        "contenu_original": { "type": "TEXT", "required": true, "description": "Contenu original de l'email" },
+        "analyse_ia": { "type": "TEXT", "required": false, "description": "Analyse generee par IA" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true }
+      },
+      "indexes": ["user_id", "patient_id"],
+      "has_rls": true
+    },
+
+    "allowed_users": {
+      "description": "Liste blanche des emails autorises a se connecter",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "email": { "type": "TEXT", "required": true, "unique": true, "description": "Email autorise" },
+        "created_at": { "type": "TIMESTAMPTZ", "auto_generated": true },
+        "notes": { "type": "TEXT", "required": false, "description": "Notes sur l'utilisateur" }
+      }
+    },
+
+    "phonetic_mappings": {
+      "description": "Correspondances phonetiques pour la recherche fuzzy de noms",
+      "fields": {
+        "id": { "type": "UUID", "primary_key": true, "auto_generated": true },
+        "canonical": { "type": "TEXT", "required": true, "description": "Forme canonique du nom" },
+        "variant": { "type": "TEXT", "required": true, "description": "Variante orthographique" }
+      },
+      "constraints": ["UNIQUE(canonical, variant)"],
+      "examples": [
+        { "canonical": "emma", "variant": "ema" },
+        { "canonical": "mathis", "variant": "mathys" },
+        { "canonical": "raphael", "variant": "rafael" }
+      ]
+    }
+  },
+
+  "relationships_diagram": {
+    "description": "Relations entre les tables principales",
+    "relations": [
+      { "from": "observations", "to": "patients", "type": "many_to_one", "field": "patient_id" },
+      { "from": "observations", "to": "consultations", "type": "many_to_one", "field": "consultation_id" },
+      { "from": "todos", "to": "patients", "type": "many_to_one", "field": "patient_id", "optional": true },
+      { "from": "todos", "to": "observations", "type": "many_to_one", "field": "observation_id", "optional": true },
+      { "from": "todos", "to": "work_sessions", "type": "many_to_one", "field": "work_session_id", "optional": true },
+      { "from": "mail_imports", "to": "patients", "type": "many_to_one", "field": "patient_id", "optional": true }
+    ]
+  },
+
+  "data_import_guidelines": {
+    "description": "Instructions pour l'analyse de documents a integrer dans la base",
+
+    "patient_extraction": {
+      "required_fields": ["nom", "prenom"],
+      "optional_fields": ["sexe", "date_naissance", "telephone", "email", "adresse", "secteur", "notes"],
+      "format_notes": {
+        "nom": "Mettre en majuscules",
+        "prenom": "Premiere lettre majuscule",
+        "date_naissance": "Format ISO: YYYY-MM-DD",
+        "sexe": "M, F ou autre",
+        "secteur": "Peut contenir plusieurs valeurs separees par virgule"
+      }
+    },
+
+    "observation_extraction": {
+      "required_fields": ["patient_id", "date", "type_observation"],
+      "optional_fields": ["contenu", "consultation_id"],
+      "format_notes": {
+        "date": "Format ISO: YYYY-MM-DD",
+        "type_observation": "Une des valeurs de l'enum type_observation",
+        "contenu": "Texte libre decrivant l'observation"
+      },
+      "type_detection_hints": {
+        "consultation": "Visite au cabinet, examen clinique",
+        "suivi": "Controle, evolution, surveillance",
+        "urgence": "Urgence, SAMU, hospitalisation urgente",
+        "telephone": "Appel telephonique, teleconsultation",
+        "resultats": "Resultats d'examens, bilans, analyses",
+        "courrier": "Courrier de specialiste, compte-rendu",
+        "reunion": "Staff, reunion pluridisciplinaire, RCP",
+        "note": "Note personnelle, memo, rappel"
+      }
+    },
+
+    "todo_extraction": {
+      "required_fields": ["contenu", "type_todo", "urgence"],
+      "optional_fields": ["patient_id", "date_echeance", "annotations", "tags"],
+      "format_notes": {
+        "date_echeance": "Format ISO: YYYY-MM-DD",
+        "type_todo": "Une des valeurs de l'enum type_todo",
+        "urgence": "Une des valeurs de l'enum urgence_todo"
+      },
+      "urgence_detection_hints": {
+        "critique": "Immediat, vital, urgent+++",
+        "haute": "Rapidement, sous 24-48h, urgent",
+        "normale": "Dans la semaine, a faire",
+        "basse": "Quand possible, non urgent"
+      },
+      "type_detection_hints": {
+        "rappel": "Rappeler, recontacter, relancer",
+        "prescription": "Prescrire, ordonnance, traitement",
+        "examen": "Examens, analyses, radio, echo, IRM",
+        "courrier": "Courrier, lettre, certificat",
+        "rdv": "Rendez-vous, consultation, specialiste",
+        "avis": "Avis specialiste, consultation specialisee",
+        "administratif": "Administratif, papiers, dossier",
+        "autre": "Autre tache non categorisee"
+      }
+    },
+
+    "document_types_supported": [
+      {
+        "type": "Compte-rendu de consultation",
+        "extract": ["patient", "observation", "todos"],
+        "hints": "Contient generalement patient, motif, examen clinique, diagnostic, traitement"
+      },
+      {
+        "type": "Courrier de specialiste",
+        "extract": ["patient", "observation"],
+        "hints": "En-tete medecin, patient, antecedents, examen, conclusion"
+      },
+      {
+        "type": "Resultat d'examen",
+        "extract": ["patient", "observation"],
+        "hints": "Nom patient, type examen, resultats, valeurs, interpretation"
+      },
+      {
+        "type": "Liste de taches",
+        "extract": ["todos"],
+        "hints": "Liste d'actions a faire, avec eventuellement patients associes"
+      },
+      {
+        "type": "Email medical",
+        "extract": ["patient", "observation", "todos"],
+        "hints": "Communication entre professionnels, peut contenir infos patient et actions"
+      }
+    ]
+  },
+
+  "security_notes": {
+    "rls_enabled": "Toutes les tables principales ont Row Level Security active",
+    "user_isolation": "Chaque utilisateur ne voit que ses propres donnees",
+    "auth_whitelist": "Seuls les emails dans allowed_users peuvent se connecter"
+  }
+}
