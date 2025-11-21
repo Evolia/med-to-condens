@@ -46,9 +46,6 @@ export function MainNavigation({
   return (
     <nav className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4">
       <div className="flex items-center gap-1">
-        <span className="mr-4 text-lg font-semibold text-gray-900">
-          MedCondens
-        </span>
         {onSearchClick && (
           <button
             onClick={onSearchClick}
