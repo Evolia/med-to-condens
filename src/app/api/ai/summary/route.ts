@@ -73,9 +73,19 @@ export async function POST(request: NextRequest) {
     // Generate summary with Gemini
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const prompt = `Tu es un assistant medical. Resume en 3-5 points cles les observations suivantes pour cet enfant.
-Focus sur: diagnostics, traitements en cours, points de vigilance, evolution.
-Sois concis et utilise un langage medical professionnel.
+    const prompt = `Tu es un assistant medical specialise en pediatrie. Analyse les observations suivantes et genere un resume structure.
+
+Organise le resume selon ces categories (N'AFFICHE PAS le titre d'une section si elle ne contient aucune information pertinente):
+
+**Protection de l'enfance** - Informations concernant les parents, situations de maltraitance, negligence, contexte familial preoccupant
+
+**Relation aux parents** - Qualite des interactions parent-enfant, attachement, comportements parentaux observes
+
+**Developpement psychomoteur** - Acquisitions motrices, langage, cognition, comportement, retards eventuels
+
+**Medical** - Diagnostics importants, pathologies chroniques, traitements en cours, hospitalisations, points de vigilance
+
+Sois concis et utilise un langage medical professionnel. Ne mets que les informations pertinentes et importantes.
 
 Patient: ${patient.nom} ${patient.prenom}
 ${patient.date_naissance ? `Date de naissance: ${patient.date_naissance}` : ""}
