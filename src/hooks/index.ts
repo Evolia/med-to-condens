@@ -61,3 +61,12 @@ export {
   useCompleteWorkSession,
   useDeleteWorkSession,
 } from "./use-work-sessions";
+
+// Tags
+export {
+  useTags,
+  useSectorTags,
+  useConsultationTags,
+  useTodoTags,
+} from "./use-tags";
+export type { TagSource } from "./use-tags";
