@@ -111,6 +111,7 @@ export interface WorkSession {
   name: string;
   date?: string;
   description?: string;
+  tags?: string;
   completed: boolean;
   created_at?: string;
   updated_at?: string;

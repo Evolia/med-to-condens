@@ -6,6 +6,7 @@ import { Todo } from "@/types";
 import { useAuth } from "./use-auth";
 
 const TODOS_KEY = "todos";
+const TAGS_KEY = "tags";
 
 export function useTodos(filters?: { completed?: boolean; patientId?: string }) {
   const { user } = useAuth();
@@ -98,8 +99,12 @@ export function useCreateTodo() {
       if (error) throw error;
       return data as Todo;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [TODOS_KEY] });
+      // Invalidate tags cache if todo has tags
+      if (data.tags) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "todo-tags"] });
+      }
     },
   });
 }
@@ -123,6 +128,10 @@ export function useUpdateTodo() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [TODOS_KEY] });
       queryClient.invalidateQueries({ queryKey: [TODOS_KEY, data.id] });
+      // Invalidate tags cache if todo has tags
+      if (data.tags) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "todo-tags"] });
+      }
     },
   });
 }

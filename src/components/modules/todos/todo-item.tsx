@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Check, Edit, Trash2, MessageSquare, Calendar } from "lucide-react";
+import { Check, Edit, Trash2, MessageSquare, Calendar, X, Save } from "lucide-react";
 import { Todo, UrgenceTodo, TypeTodo, ModuleType } from "@/types";
 import {
   useCompleteTodo,
@@ -9,9 +9,11 @@ import {
   useUpdateTodo,
   useDeleteTodo,
   useActiveWorkSessions,
+  useTodoTags,
 } from "@/hooks";
 import { formatDate } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
+import { TagInput } from "@/components/ui";
 
 interface TodoItemProps {
   todo: Todo;
@@ -36,10 +38,36 @@ const typeLabels: Record<TypeTodo, string> = {
   [TypeTodo.AUTRE]: "Autre",
 };
 
+const typeOptions = [
+  { value: TypeTodo.RAPPEL, label: "Rappel" },
+  { value: TypeTodo.PRESCRIPTION, label: "Prescription" },
+  { value: TypeTodo.EXAMEN, label: "Examen" },
+  { value: TypeTodo.COURRIER, label: "Courrier" },
+  { value: TypeTodo.RDV, label: "RDV" },
+  { value: TypeTodo.AVIS, label: "Avis" },
+  { value: TypeTodo.ADMINISTRATIF, label: "Administratif" },
+  { value: TypeTodo.AUTRE, label: "Autre" },
+];
+
+const urgenceOptions = [
+  { value: UrgenceTodo.BASSE, label: "Basse" },
+  { value: UrgenceTodo.NORMALE, label: "Normale" },
+  { value: UrgenceTodo.HAUTE, label: "Haute" },
+  { value: UrgenceTodo.CRITIQUE, label: "Critique" },
+];
+
 export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
   const [showAnnotation, setShowAnnotation] = useState(false);
   const [annotation, setAnnotation] = useState(todo.annotations || "");
   const [showSessionDropdown, setShowSessionDropdown] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    contenu: todo.contenu,
+    type_todo: todo.type_todo,
+    urgence: todo.urgence,
+    date_echeance: todo.date_echeance || "",
+    tags: todo.tags || "",
+  });
 
   const completeTodo = useCompleteTodo();
   const uncompleteTodo = useUncompleteTodo();
@@ -47,8 +75,54 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
   const deleteTodo = useDeleteTodo();
   const { addTab } = useTabsStore();
   const { data: workSessions = [] } = useActiveWorkSessions();
+  const { data: todoTags = [] } = useTodoTags();
 
   const sessionDropdownRef = useRef<HTMLDivElement>(null);
+  const editFormRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to save and close edit mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        editFormRef.current &&
+        !editFormRef.current.contains(event.target as Node)
+      ) {
+        handleSaveEdit();
+      }
+    };
+
+    if (isEditing) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isEditing, editData]);
+
+  const handleStartEdit = () => {
+    setEditData({
+      contenu: todo.contenu,
+      type_todo: todo.type_todo,
+      urgence: todo.urgence,
+      date_echeance: todo.date_echeance || "",
+      tags: todo.tags || "",
+    });
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveEdit = async () => {
+    await updateTodo.mutateAsync({
+      id: todo.id,
+      contenu: editData.contenu,
+      type_todo: editData.type_todo,
+      urgence: editData.urgence,
+      date_echeance: editData.date_echeance || undefined,
+      tags: editData.tags || undefined,
+    });
+    setIsEditing(false);
+  };
 
   const handleToggleComplete = async () => {
     if (todo.completed) {
@@ -154,39 +228,109 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
               {todo.patient.nom.toUpperCase()} {todo.patient.prenom}
             </button>
           )}
-          <p
-            className={`text-sm ${
-              todo.completed ? "text-gray-500 line-through" : "text-gray-900"
-            }`}
-          >
-            {todo.contenu}
-          </p>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-            <span className="rounded bg-gray-100 px-1.5 py-0.5">
-              {typeLabels[todo.type_todo]}
-            </span>
-            {todo.date_echeance && (
-              <span
-                className={
-                  new Date(todo.date_echeance) < new Date() && !todo.completed
-                    ? "text-red-600"
-                    : ""
-                }
-              >
-                Echeance: {formatDate(todo.date_echeance)}
-              </span>
-            )}
-            {todo.tags && (
-              <div className="flex flex-wrap gap-1">
-                {todo.tags.split(",").map((tag, i) => (
-                  <span key={i} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
-                    {tag.trim()}
-                  </span>
-                ))}
+          {isEditing ? (
+            <div ref={editFormRef} className="space-y-3">
+              <textarea
+                value={editData.contenu}
+                onChange={(e) => setEditData({ ...editData, contenu: e.target.value })}
+                className="w-full rounded border border-gray-300 p-2 text-sm"
+                rows={2}
+                placeholder="Description de la tâche..."
+                autoFocus
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <select
+                  value={editData.type_todo}
+                  onChange={(e) => setEditData({ ...editData, type_todo: e.target.value as TypeTodo })}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs"
+                >
+                  {typeOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={editData.urgence}
+                  onChange={(e) => setEditData({ ...editData, urgence: e.target.value as UrgenceTodo })}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs"
+                >
+                  {urgenceOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  value={editData.date_echeance}
+                  onChange={(e) => setEditData({ ...editData, date_echeance: e.target.value })}
+                  className="rounded border border-gray-300 px-2 py-1 text-xs"
+                />
               </div>
-            )}
-          </div>
+              <TagInput
+                value={editData.tags}
+                onChange={(value) => setEditData({ ...editData, tags: value })}
+                suggestions={todoTags}
+                placeholder="Tags..."
+                color="purple"
+                showLabel={false}
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={handleCancelEdit}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                >
+                  <X className="h-3 w-3" />
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  className="flex items-center gap-1 rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+                >
+                  <Save className="h-3 w-3" />
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p
+                className={`text-sm ${
+                  todo.completed ? "text-gray-500 line-through" : "text-gray-900"
+                }`}
+              >
+                {todo.contenu}
+              </p>
+
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                  {typeLabels[todo.type_todo]}
+                </span>
+                {todo.date_echeance && (
+                  <span
+                    className={
+                      new Date(todo.date_echeance) < new Date() && !todo.completed
+                        ? "text-red-600"
+                        : ""
+                    }
+                  >
+                    Echeance: {formatDate(todo.date_echeance)}
+                  </span>
+                )}
+                {todo.tags && (
+                  <div className="flex flex-wrap gap-1">
+                    {todo.tags.split(",").map((tag, i) => (
+                      <span key={i} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                        {tag.trim()}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Annotations */}
           {todo.annotations && !showAnnotation && (
@@ -224,14 +368,22 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowAnnotation(!showAnnotation)}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            title="Annoter"
-          >
-            <MessageSquare className="h-4 w-4" />
-          </button>
+        {!isEditing && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleStartEdit}
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-600"
+              title="Modifier"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowAnnotation(!showAnnotation)}
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              title="Annoter"
+            >
+              <MessageSquare className="h-4 w-4" />
+            </button>
           <div className="relative" ref={sessionDropdownRef}>
             <button
               onClick={() => setShowSessionDropdown(!showSessionDropdown)}
@@ -293,7 +445,8 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
           >
             <Trash2 className="h-4 w-4" />
           </button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

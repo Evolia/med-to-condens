@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { CheckCircle, Clock, ChevronDown, ChevronRight, Plus, Users, ListTodo } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { CheckCircle, Clock, ChevronDown, ChevronRight, Plus, Users, ListTodo, Tag } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useActiveTodos, useCompletedTodos } from "@/hooks";
 import { Todo, ModuleType, TypeTodo } from "@/types";
@@ -12,7 +12,7 @@ import { WorkSessionsList } from "./work-sessions-list";
 import { useTabsStore } from "@/stores/tabs-store";
 
 type ViewType = "active" | "completed" | "sessions";
-type GroupByType = "patient" | "type";
+type GroupByType = "patient" | "type" | "tags";
 
 const typeLabels: Record<TypeTodo, string> = {
   [TypeTodo.RAPPEL]: "Rappel",
@@ -191,15 +191,108 @@ function TypeGroup({
   );
 }
 
+// Group todos by tags
+function groupTodosByTags(todos: Todo[]) {
+  const grouped: Record<string, Todo[]> = {};
+
+  todos.forEach((todo) => {
+    if (todo.tags) {
+      // Split tags and add to each tag group
+      const tagList = todo.tags.split(",").map((t) => t.trim()).filter(Boolean);
+      tagList.forEach((tag) => {
+        if (!grouped[tag]) {
+          grouped[tag] = [];
+        }
+        grouped[tag].push(todo);
+      });
+    } else {
+      // Todos without tags go to "Sans tag" group
+      const key = "Sans tag";
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(todo);
+    }
+  });
+
+  // Sort todos within each group by urgency and date
+  Object.values(grouped).forEach((groupTodos) => {
+    groupTodos.sort((a, b) => {
+      const urgencyOrder = { critique: 0, haute: 1, normale: 2, basse: 3 };
+      const urgencyDiff = urgencyOrder[a.urgence] - urgencyOrder[b.urgence];
+      if (urgencyDiff !== 0) return urgencyDiff;
+
+      if (a.date_echeance && b.date_echeance) {
+        return new Date(a.date_echeance).getTime() - new Date(b.date_echeance).getTime();
+      }
+      return 0;
+    });
+  });
+
+  return grouped;
+}
+
+function TagsGroup({
+  tagName,
+  todos,
+}: {
+  tagName: string;
+  todos: Todo[];
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-left hover:bg-green-100"
+      >
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-green-500" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-green-500" />
+        )}
+        <span className="font-medium text-green-700">
+          {tagName}
+        </span>
+        <span className="text-sm text-gray-500">({todos.length})</span>
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 space-y-2 pl-6">
+          {todos.map((todo) => (
+            <TodoItem key={todo.id} todo={todo} showPatient />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TodosModule() {
   const [view, setView] = useState<ViewType>("active");
   const [groupBy, setGroupBy] = useState<GroupByType>("patient");
   const [showNewTodo, setShowNewTodo] = useState(false);
 
-  const { tabs, activeTabId } = useTabsStore();
+  const { tabs, activeTabId, addTab } = useTabsStore();
   const { data: activeTodos, isLoading: loadingActive } = useActiveTodos();
   const { data: completedTodos, isLoading: loadingCompleted } =
     useCompletedTodos();
+
+  // Ensure the main list tab exists on mount
+  useEffect(() => {
+    const hasListTab = tabs.some(
+      (tab) => tab.module === ModuleType.TODOS && tab.type === "list"
+    );
+    if (!hasListTab) {
+      addTab({
+        id: "todos-list",
+        type: "list",
+        module: ModuleType.TODOS,
+        title: "Taches",
+      });
+    }
+  }, [tabs, addTab]);
 
   const todos = view === "active" ? activeTodos : completedTodos;
   const isLoading = view === "active" ? loadingActive : loadingCompleted;
@@ -212,6 +305,11 @@ export function TodosModule() {
   const groupedByType = useMemo(() => {
     if (!todos) return {};
     return groupTodosByType(todos);
+  }, [todos]);
+
+  const groupedByTags = useMemo(() => {
+    if (!todos) return {};
+    return groupTodosByTags(todos);
   }, [todos]);
 
   // Get the active tab for this module
@@ -302,6 +400,18 @@ export function TodosModule() {
                 <ListTodo className="h-3 w-3" />
                 Type
               </button>
+              <button
+                onClick={() => setGroupBy("tags")}
+                className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${
+                  groupBy === "tags"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+                title="Grouper par tags"
+              >
+                <Tag className="h-3 w-3" />
+                Tags
+              </button>
             </div>
           </div>
         )}
@@ -340,7 +450,7 @@ export function TodosModule() {
               />
             ))}
           </div>
-        ) : (
+        ) : groupBy === "type" ? (
           <div className="p-4">
             {Object.entries(groupedByType).map(([typeTodo, todos]) => (
               <TypeGroup
@@ -349,6 +459,23 @@ export function TodosModule() {
                 todos={todos}
               />
             ))}
+          </div>
+        ) : (
+          <div className="p-4">
+            {Object.entries(groupedByTags)
+              .sort(([a], [b]) => {
+                // Put "Sans tag" at the end
+                if (a === "Sans tag") return 1;
+                if (b === "Sans tag") return -1;
+                return a.toLowerCase().localeCompare(b.toLowerCase());
+              })
+              .map(([tagName, todos]) => (
+                <TagsGroup
+                  key={tagName}
+                  tagName={tagName}
+                  todos={todos}
+                />
+              ))}
           </div>
         )}
       </div>

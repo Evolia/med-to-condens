@@ -161,7 +161,7 @@ export function ObservationsModule() {
             onCancel={() => setShowNewObservation(false)}
           />
         ) : view === "group" ? (
-          <ConsultationTable consultations={consultations || []} />
+          <ConsultationTable consultations={consultations || []} observations={allObservations || []} />
         ) : (
           <ObservationTable observations={observations || []} showPatient />
         )}

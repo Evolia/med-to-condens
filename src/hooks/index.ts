@@ -60,4 +60,16 @@ export {
   useUpdateWorkSession,
   useCompleteWorkSession,
   useDeleteWorkSession,
+  useWorkSessionsStats,
 } from "./use-work-sessions";
+export type { SessionStats } from "./use-work-sessions";
+
+// Tags
+export {
+  useTags,
+  useSectorTags,
+  useConsultationTags,
+  useTodoTags,
+  useWorkSessionTags,
+} from "./use-tags";
+export type { TagSource } from "./use-tags";

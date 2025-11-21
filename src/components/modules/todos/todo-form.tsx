@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Save, X } from "lucide-react";
-import { Button, Input, PatientSearch } from "@/components/ui";
-import { useCreateTodo } from "@/hooks";
+import { Button, Input, PatientSearch, TagInput } from "@/components/ui";
+import { useCreateTodo, useTodoTags } from "@/hooks";
 import { TypeTodo, UrgenceTodo } from "@/types";
 
 interface TodoFormProps {
@@ -43,6 +43,7 @@ export function TodoForm({
   const [tags, setTags] = useState("");
 
   const createTodo = useCreateTodo();
+  const { data: todoTags = [] } = useTodoTags();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,18 +137,14 @@ export function TodoForm({
         />
       </div>
 
-      <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">
-          Tags <span className="text-xs text-gray-500">(séparés par des virgules)</span>
-        </label>
-        <input
-          type="text"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="Ex: urgent, médical, suivi..."
-          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-      </div>
+      <TagInput
+        value={tags}
+        onChange={setTags}
+        suggestions={todoTags}
+        label="Tags"
+        placeholder="Ex: urgent, médical, suivi..."
+        color="purple"
+      />
 
       <div className="flex justify-end gap-3">
         {onCancel && (

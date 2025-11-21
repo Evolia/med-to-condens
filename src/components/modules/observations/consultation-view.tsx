@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag, Download } from "lucide-react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, TagInput } from "@/components/ui";
 import {
   useConsultation,
   useObservations,
@@ -12,6 +12,7 @@ import {
   useCreateObservation,
   useUpdateConsultation,
   useDeleteConsultation,
+  useConsultationTags,
 } from "@/hooks";
 import { TypeObservation } from "@/types";
 import { ObservationTable } from "./observation-table";
@@ -60,6 +61,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const updateConsultation = useUpdateConsultation();
   const deleteConsultation = useDeleteConsultation();
   const { updateTab } = useTabsStore();
+  const { data: consultationTags = [] } = useConsultationTags();
 
   // Update observations ref when observations change
   useEffect(() => {
@@ -507,25 +509,25 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
             {/* Tags */}
             <div className="mt-2">
               {editingField === "tags" ? (
-                <div ref={editingContainerRef} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    placeholder="Separez par des virgules"
-                    className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSaveField();
-                      if (e.key === "Escape") handleCancelEdit();
-                    }}
-                  />
-                  <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
-                    <Check className="h-3 w-3" />
-                  </button>
-                  <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
-                    <X className="h-3 w-3" />
-                  </button>
+                <div ref={editingContainerRef} className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <TagInput
+                      value={editValue}
+                      onChange={(newValue) => setEditValue(newValue)}
+                      suggestions={consultationTags}
+                      placeholder="Ajouter des tags..."
+                      color="purple"
+                      showLabel={false}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 pt-2">
+                    <button onClick={handleSaveField} className="text-green-600 hover:text-green-800">
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button onClick={handleCancelEdit} className="text-gray-400 hover:text-gray-600">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ) : consultation.tags ? (
                 <div

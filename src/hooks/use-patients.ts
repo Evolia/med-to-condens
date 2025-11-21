@@ -6,6 +6,7 @@ import { Patient } from "@/types";
 import { useAuth } from "./use-auth";
 
 const PATIENTS_KEY = "patients";
+const TAGS_KEY = "tags";
 
 export function usePatients() {
   const { user } = useAuth();
@@ -105,8 +106,12 @@ export function useCreatePatient() {
       }
       return data as Patient;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [PATIENTS_KEY] });
+      // Invalidate sectors cache if patient has secteur
+      if (data.secteur) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "sectors"] });
+      }
     },
   });
 }
@@ -138,6 +143,10 @@ export function useUpdatePatient() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [PATIENTS_KEY] });
       queryClient.invalidateQueries({ queryKey: [PATIENTS_KEY, data.id] });
+      // Invalidate sectors cache if patient has secteur
+      if (data.secteur) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "sectors"] });
+      }
     },
   });
 }

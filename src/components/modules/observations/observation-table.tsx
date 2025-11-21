@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList, Calendar, AlertCircle } from "lucide-react";
+import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList, Calendar, AlertCircle, X, Filter } from "lucide-react";
 import { Observation, TypeObservation, Patient, ModuleType } from "@/types";
 import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
@@ -10,6 +10,11 @@ import { useAppModule } from "@/components/layout/use-app-module";
 
 type SortField = "patient" | "secteur" | "age" | "date" | "type";
 type SortDirection = "asc" | "desc";
+
+interface DateFilter {
+  start: string;
+  end: string;
+}
 
 interface ObservationTableProps {
   observations: Observation[];
@@ -38,6 +43,18 @@ export function ObservationTable({
   const [showTodosForPatient, setShowTodosForPatient] = useState<string | null>(null);
   const todosPopupRef = useRef<HTMLDivElement>(null);
 
+  // Filter states
+  const [selectedSecteurs, setSelectedSecteurs] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<TypeObservation[]>([]);
+  const [dateFilter, setDateFilter] = useState<DateFilter>({ start: "", end: "" });
+  const [showSecteurFilter, setShowSecteurFilter] = useState(false);
+  const [showTypeFilter, setShowTypeFilter] = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+
+  const secteurFilterRef = useRef<HTMLDivElement>(null);
+  const typeFilterRef = useRef<HTMLDivElement>(null);
+  const dateFilterRef = useRef<HTMLDivElement>(null);
+
   const deleteObservation = useDeleteObservation();
   const updateObservation = useUpdateObservation();
   const { data: allTodos } = useTodos({ completed: false });
@@ -61,6 +78,40 @@ export function ObservationTable({
     }
   }, [showTodosForPatient]);
 
+  // Close filter dropdowns on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (secteurFilterRef.current && !secteurFilterRef.current.contains(event.target as Node)) {
+        setShowSecteurFilter(false);
+      }
+      if (typeFilterRef.current && !typeFilterRef.current.contains(event.target as Node)) {
+        setShowTypeFilter(false);
+      }
+      if (dateFilterRef.current && !dateFilterRef.current.contains(event.target as Node)) {
+        setShowDateFilter(false);
+      }
+    };
+
+    if (showSecteurFilter || showTypeFilter || showDateFilter) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showSecteurFilter, showTypeFilter, showDateFilter]);
+
+  // Get unique secteurs from observations
+  const uniqueSecteurs = useMemo(() => {
+    const secteurs = new Set<string>();
+    observations.forEach((obs) => {
+      if (obs.patient?.secteur) {
+        obs.patient.secteur.split(",").forEach((s) => {
+          const trimmed = s.trim();
+          if (trimmed) secteurs.add(trimmed);
+        });
+      }
+    });
+    return Array.from(secteurs).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [observations]);
+
   // Get todos count by patient
   const todosByPatient = useMemo(() => {
     if (!allTodos) return {};
@@ -79,9 +130,46 @@ export function ObservationTable({
     return allTodos.filter((todo) => todo.patient_id === patientId);
   };
 
+  // Filter observations
+  const filteredObservations = useMemo(() => {
+    return observations.filter((obs) => {
+      // Filter by secteur
+      if (selectedSecteurs.length > 0) {
+        if (!obs.patient?.secteur) return false;
+        const obsSecteurs = obs.patient.secteur.split(",").map((s) => s.trim());
+        if (!selectedSecteurs.some((s) => obsSecteurs.includes(s))) return false;
+      }
+
+      // Filter by type
+      if (selectedTypes.length > 0) {
+        if (!selectedTypes.includes(obs.type_observation)) return false;
+      }
+
+      // Filter by date
+      if (dateFilter.start) {
+        const obsDate = new Date(obs.date);
+        const startDate = new Date(dateFilter.start);
+        startDate.setHours(0, 0, 0, 0);
+
+        if (dateFilter.end) {
+          const endDate = new Date(dateFilter.end);
+          endDate.setHours(23, 59, 59, 999);
+          if (obsDate < startDate || obsDate > endDate) return false;
+        } else {
+          // Only start date - show only that day
+          const endOfDay = new Date(dateFilter.start);
+          endOfDay.setHours(23, 59, 59, 999);
+          if (obsDate < startDate || obsDate > endOfDay) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [observations, selectedSecteurs, selectedTypes, dateFilter]);
+
   // Sort observations
   const sortedObservations = useMemo(() => {
-    return [...observations].sort((a, b) => {
+    return [...filteredObservations].sort((a, b) => {
       let comparison = 0;
 
       switch (sortField) {
@@ -110,7 +198,7 @@ export function ObservationTable({
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [observations, sortField, sortDirection]);
+  }, [filteredObservations, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -132,6 +220,26 @@ export function ObservationTable({
       </div>
     </th>
   );
+
+  const hasActiveFilters = selectedSecteurs.length > 0 || selectedTypes.length > 0 || dateFilter.start;
+
+  const toggleSecteur = (secteur: string) => {
+    setSelectedSecteurs((prev) =>
+      prev.includes(secteur) ? prev.filter((s) => s !== secteur) : [...prev, secteur]
+    );
+  };
+
+  const toggleType = (type: TypeObservation) => {
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedSecteurs([]);
+    setSelectedTypes([]);
+    setDateFilter({ start: "", end: "" });
+  };
 
   const handleEdit = (obs: Observation) => {
     setEditingId(obs.id);
@@ -194,16 +302,163 @@ export function ObservationTable({
 
   return (
     <div className="overflow-auto">
+      {/* Active filters indicator */}
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 border-b border-blue-100">
+          <Filter className="h-4 w-4 text-blue-600" />
+          <span className="text-sm text-blue-700">
+            Filtres actifs: {filteredObservations.length} / {observations.length} observations
+          </span>
+          <button
+            onClick={clearFilters}
+            className="ml-auto flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+          >
+            <X className="h-3 w-3" />
+            Effacer les filtres
+          </button>
+        </div>
+      )}
+
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left">
           <tr>
             {showPatient && (
               <SortHeader field="patient">Patient</SortHeader>
             )}
-            <SortHeader field="secteur">Secteur</SortHeader>
+            {/* Secteur column with filter */}
+            <th className="relative px-4 py-3 font-medium text-gray-900">
+              <div
+                ref={secteurFilterRef}
+                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                onClick={() => setShowSecteurFilter(!showSecteurFilter)}
+              >
+                Secteur
+                <Filter className={`h-3 w-3 ${selectedSecteurs.length > 0 ? "text-blue-600" : "text-gray-400"}`} />
+                {selectedSecteurs.length > 0 && (
+                  <span className="ml-1 rounded-full bg-blue-600 px-1.5 text-xs text-white">
+                    {selectedSecteurs.length}
+                  </span>
+                )}
+              </div>
+              {showSecteurFilter && (
+                <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg">
+                  <div className="max-h-48 overflow-y-auto p-2">
+                    {uniqueSecteurs.length === 0 ? (
+                      <p className="px-2 py-1 text-xs text-gray-500">Aucun secteur</p>
+                    ) : (
+                      uniqueSecteurs.map((secteur) => (
+                        <label key={secteur} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-100 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedSecteurs.includes(secteur)}
+                            onChange={() => toggleSecteur(secteur)}
+                            className="rounded border-gray-300"
+                          />
+                          <span className="text-sm">{secteur}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedSecteurs.length > 0 && (
+                    <div className="border-t border-gray-200 p-2">
+                      <button
+                        onClick={() => setSelectedSecteurs([])}
+                        className="w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                      >
+                        Effacer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </th>
             <SortHeader field="age">Age</SortHeader>
-            <SortHeader field="date">Date</SortHeader>
-            <SortHeader field="type">Type</SortHeader>
+            {/* Date column with filter */}
+            <th className="relative px-4 py-3 font-medium text-gray-900">
+              <div
+                ref={dateFilterRef}
+                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                onClick={() => setShowDateFilter(!showDateFilter)}
+              >
+                Date
+                <Filter className={`h-3 w-3 ${dateFilter.start ? "text-blue-600" : "text-gray-400"}`} />
+              </div>
+              {showDateFilter && (
+                <div className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
+                  <div className="space-y-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Du</label>
+                      <input
+                        type="date"
+                        value={dateFilter.start}
+                        onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Au (optionnel)</label>
+                      <input
+                        type="date"
+                        value={dateFilter.end}
+                        onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })}
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                      />
+                    </div>
+                  </div>
+                  {dateFilter.start && (
+                    <button
+                      onClick={() => setDateFilter({ start: "", end: "" })}
+                      className="mt-2 w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                    >
+                      Effacer
+                    </button>
+                  )}
+                </div>
+              )}
+            </th>
+            {/* Type column with filter */}
+            <th className="relative px-4 py-3 font-medium text-gray-900">
+              <div
+                ref={typeFilterRef}
+                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                onClick={() => setShowTypeFilter(!showTypeFilter)}
+              >
+                Type
+                <Filter className={`h-3 w-3 ${selectedTypes.length > 0 ? "text-blue-600" : "text-gray-400"}`} />
+                {selectedTypes.length > 0 && (
+                  <span className="ml-1 rounded-full bg-blue-600 px-1.5 text-xs text-white">
+                    {selectedTypes.length}
+                  </span>
+                )}
+              </div>
+              {showTypeFilter && (
+                <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg">
+                  <div className="max-h-48 overflow-y-auto p-2">
+                    {Object.entries(typeLabels).map(([type, label]) => (
+                      <label key={type} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedTypes.includes(type as TypeObservation)}
+                          onChange={() => toggleType(type as TypeObservation)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {selectedTypes.length > 0 && (
+                    <div className="border-t border-gray-200 p-2">
+                      <button
+                        onClick={() => setSelectedTypes([])}
+                        className="w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                      >
+                        Effacer
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </th>
             <th className="px-4 py-3 font-medium text-gray-900">Contenu</th>
             <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
           </tr>

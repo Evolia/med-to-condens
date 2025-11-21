@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Plus, User, List, Table, ArrowUpDown, Trash2, Filter, X } from "lucide-react";
+import { Search, Plus, User, List, Table, ArrowUpDown, Trash2, Filter, X, Calendar } from "lucide-react";
 import { Input, Button } from "@/components/ui";
-import { usePatients, useDeletePatient } from "@/hooks";
-import { Patient, ModuleType } from "@/types";
+import { usePatients, useDeletePatient, useConsultations, useCreateConsultation, useCreateObservation } from "@/hooks";
+import { Patient, ModuleType, TypeObservation } from "@/types";
 import { useTabsStore } from "@/stores/tabs-store";
-import { calculateAge, formatDate } from "@/lib/date-utils";
+import { calculateAge, formatDate, calculateAgeInDays } from "@/lib/date-utils";
 
 // Normalize string: remove accents and convert to lowercase
 function normalizeString(str: string): string {
@@ -29,9 +29,18 @@ export function PatientList() {
   const [secteurFilterValue, setSecteurFilterValue] = useState("");
   const secteurFilterRef = useRef<HTMLDivElement>(null);
 
+  // Planifier state
+  const [planifierPatientId, setPlanifierPatientId] = useState<string | null>(null);
+  const [showPlanifierModal, setShowPlanifierModal] = useState(false);
+  const [isCreatingConsultation, setIsCreatingConsultation] = useState(false);
+  const planifierRef = useRef<HTMLDivElement>(null);
+
   const { data: patients, isLoading } = usePatients();
   const deletePatient = useDeletePatient();
   const { addTab, tabs } = useTabsStore();
+  const { data: consultations } = useConsultations();
+  const createConsultation = useCreateConsultation();
+  const createObservation = useCreateObservation();
 
   // Ensure the main list tab exists on mount
   useEffect(() => {
@@ -64,6 +73,24 @@ export function PatientList() {
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [showSecteurFilter]);
+
+  // Close planifier modal on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        planifierRef.current &&
+        !planifierRef.current.contains(event.target as Node)
+      ) {
+        setShowPlanifierModal(false);
+        setPlanifierPatientId(null);
+      }
+    };
+
+    if (showPlanifierModal) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showPlanifierModal]);
 
   // Filter and sort patients locally for instant feedback
   const filteredPatients = useMemo(() => {
@@ -173,6 +200,119 @@ export function PatientList() {
       await deletePatient.mutateAsync(patientId);
     }
   };
+
+  const handlePlanifier = (patientId: string) => {
+    setPlanifierPatientId(patientId);
+    setShowPlanifierModal(true);
+  };
+
+  const handleAddToConsultation = async (consultationId: string) => {
+    if (!planifierPatientId) return;
+
+    const patient = patients?.find(p => p.id === planifierPatientId);
+    const consultation = consultations?.find(c => c.id === consultationId);
+
+    if (!patient || !consultation) return;
+
+    let ageInDays: number | undefined;
+    if (patient.date_naissance) {
+      ageInDays = calculateAgeInDays(patient.date_naissance, consultation.date);
+    }
+
+    await createObservation.mutateAsync({
+      patient_id: planifierPatientId,
+      consultation_id: consultationId,
+      date: consultation.date,
+      type_observation: TypeObservation.CONSULTATION,
+      contenu: "",
+      age_patient_jours: ageInDays,
+    });
+
+    setShowPlanifierModal(false);
+    setPlanifierPatientId(null);
+
+    // Open the consultation tab
+    addTab({
+      id: `consultation-${consultationId}`,
+      type: "consultation",
+      module: ModuleType.OBSERVATIONS,
+      title: consultation.titre || `Consultation du ${formatDate(consultation.date)}`,
+      data: { consultationId },
+    });
+  };
+
+  const handleCreateNewConsultation = async () => {
+    if (!planifierPatientId) return;
+
+    setIsCreatingConsultation(true);
+    const patient = patients?.find(p => p.id === planifierPatientId);
+    if (!patient) return;
+
+    const today = new Date().toISOString().split("T")[0];
+
+    try {
+      // Create new consultation
+      const newConsultation = await createConsultation.mutateAsync({
+        date: today,
+        type: "consultation",
+        titre: "",
+        tags: "",
+      });
+
+      // Calculate age
+      let ageInDays: number | undefined;
+      if (patient.date_naissance) {
+        ageInDays = calculateAgeInDays(patient.date_naissance, today);
+      }
+
+      // Create observation for this patient
+      await createObservation.mutateAsync({
+        patient_id: planifierPatientId,
+        consultation_id: newConsultation.id,
+        date: today,
+        type_observation: TypeObservation.CONSULTATION,
+        contenu: "",
+        age_patient_jours: ageInDays,
+      });
+
+      setShowPlanifierModal(false);
+      setPlanifierPatientId(null);
+
+      // Open the consultation tab
+      addTab({
+        id: `consultation-${newConsultation.id}`,
+        type: "consultation",
+        module: ModuleType.OBSERVATIONS,
+        title: `Consultation du ${formatDate(today)}`,
+        data: { consultationId: newConsultation.id },
+      });
+    } catch (error) {
+      console.error("Error creating consultation:", error);
+      alert("Erreur lors de la création de la consultation");
+    } finally {
+      setIsCreatingConsultation(false);
+    }
+  };
+
+  // Get sorted consultations for the planifier modal (future dates first, then past)
+  const sortedConsultations = useMemo(() => {
+    if (!consultations) return [];
+    const today = new Date().toISOString().split("T")[0];
+
+    return [...consultations].sort((a, b) => {
+      const aIsFuture = a.date >= today;
+      const bIsFuture = b.date >= today;
+
+      if (aIsFuture && !bIsFuture) return -1;
+      if (!aIsFuture && bIsFuture) return 1;
+
+      // Both future: ascending date (soonest first)
+      if (aIsFuture && bIsFuture) return a.date.localeCompare(b.date);
+
+      // Both past: descending date (most recent first)
+      return b.date.localeCompare(a.date);
+    });
+  }, [consultations]);
 
   const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <th
@@ -403,16 +543,89 @@ export function PatientList() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(patient.id, `${patient.nom} ${patient.prenom}`);
-                      }}
-                      className="text-gray-400 hover:text-red-600"
-                      title="Supprimer"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-2 relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlanifier(patient.id);
+                        }}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Planifier"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(patient.id, `${patient.nom} ${patient.prenom}`);
+                        }}
+                        className="text-gray-400 hover:text-red-600"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+
+                      {/* Planifier Modal */}
+                      {showPlanifierModal && planifierPatientId === patient.id && (
+                        <div
+                          ref={planifierRef}
+                          className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[300px]"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-gray-900">
+                              Planifier {patient.nom} {patient.prenom}
+                            </h4>
+                            <button
+                              onClick={() => {
+                                setShowPlanifierModal(false);
+                                setPlanifierPatientId(null);
+                              }}
+                              className="text-gray-400 hover:text-gray-600"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={handleCreateNewConsultation}
+                            disabled={isCreatingConsultation}
+                            className="w-full mb-2 flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100"
+                          >
+                            <Plus className="h-4 w-4" />
+                            {isCreatingConsultation ? "Création..." : "Nouvelle consultation"}
+                          </button>
+
+                          {sortedConsultations.length > 0 && (
+                            <>
+                              <div className="text-xs text-gray-500 mb-1">
+                                Consultations existantes :
+                              </div>
+                              <div className="max-h-48 overflow-auto space-y-1">
+                                {sortedConsultations.map((consultation) => (
+                                  <button
+                                    key={consultation.id}
+                                    onClick={() => handleAddToConsultation(consultation.id)}
+                                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100"
+                                  >
+                                    <div className="font-medium text-gray-900">
+                                      {consultation.titre || `${consultation.type || "Consultation"}`}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {formatDate(consultation.date)}
+                                      {consultation.tags && (
+                                        <span className="ml-1">
+                                          • {consultation.tags.split(",").slice(0, 2).join(", ")}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
