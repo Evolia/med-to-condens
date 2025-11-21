@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList, Calendar, AlertCircle, X, Filter } from "lucide-react";
+import { Edit, Trash2, CheckSquare, ArrowUpDown, ClipboardList, Calendar, AlertCircle, X, Filter, ChevronUp, ChevronDown } from "lucide-react";
 import { Observation, TypeObservation, Patient, ModuleType } from "@/types";
 import { useDeleteObservation, useUpdateObservation, useTodos } from "@/hooks";
 import { formatDate, calculateAge } from "@/lib/date-utils";
@@ -230,6 +230,15 @@ export function ObservationTable({
     }
   };
 
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 text-gray-400" />;
+    }
+    return sortDirection === "asc"
+      ? <ChevronUp className="h-3 w-3 text-blue-600" />
+      : <ChevronDown className="h-3 w-3 text-blue-600" />;
+  };
+
   const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <th
       className="px-4 py-3 font-medium text-gray-900 cursor-pointer hover:bg-gray-100"
@@ -237,7 +246,7 @@ export function ObservationTable({
     >
       <div className="flex items-center gap-1">
         {children}
-        <ArrowUpDown className={`h-3 w-3 ${sortField === field ? "text-blue-600" : "text-gray-400"}`} />
+        <SortIcon field={field} />
       </div>
     </th>
   );
@@ -346,139 +355,184 @@ export function ObservationTable({
             {showPatient && (
               <SortHeader field="patient">Patient</SortHeader>
             )}
-            {/* Secteur column with filter */}
+            {/* Secteur column with sort and filter */}
             <th className="relative px-4 py-3 font-medium text-gray-900">
-              <div
-                ref={secteurFilterRef}
-                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
-                onClick={() => setShowSecteurFilter(!showSecteurFilter)}
-              >
-                Secteur
-                <Filter className={`h-3 w-3 ${selectedSecteurs.length > 0 ? "text-blue-600" : "text-gray-400"}`} />
-                {selectedSecteurs.length > 0 && (
-                  <span className="ml-1 rounded-full bg-blue-600 px-1.5 text-xs text-white">
-                    {selectedSecteurs.length}
-                  </span>
-                )}
-              </div>
-              {showSecteurFilter && (
-                <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg">
-                  <div className="max-h-48 overflow-y-auto p-2">
-                    {uniqueSecteurs.length === 0 ? (
-                      <p className="px-2 py-1 text-xs text-gray-500">Aucun secteur</p>
-                    ) : (
-                      uniqueSecteurs.map((secteur) => (
-                        <label key={secteur} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-100 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedSecteurs.includes(secteur)}
-                            onChange={() => toggleSecteur(secteur)}
-                            className="rounded border-gray-300"
-                          />
-                          <span className="text-sm">{secteur}</span>
-                        </label>
-                      ))
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                  onClick={() => handleSort("secteur")}
+                >
+                  Secteur
+                  <SortIcon field="secteur" />
+                </button>
+                <div ref={secteurFilterRef} className="relative">
+                  <button
+                    className="flex items-center gap-1 p-1 rounded hover:bg-gray-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSecteurFilter(!showSecteurFilter);
+                    }}
+                  >
+                    <Filter className={`h-3 w-3 ${selectedSecteurs.length > 0 ? "text-blue-600" : "text-gray-400"}`} />
+                    {selectedSecteurs.length > 0 && (
+                      <span className="rounded-full bg-blue-600 px-1.5 text-xs text-white">
+                        {selectedSecteurs.length}
+                      </span>
                     )}
-                  </div>
-                  {selectedSecteurs.length > 0 && (
-                    <div className="border-t border-gray-200 p-2">
-                      <button
-                        onClick={() => setSelectedSecteurs([])}
-                        className="w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                      >
-                        Effacer
-                      </button>
+                  </button>
+                  {showSecteurFilter && (
+                    <div
+                      className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="max-h-48 overflow-y-auto p-2">
+                        {uniqueSecteurs.length === 0 ? (
+                          <p className="px-2 py-1 text-xs text-gray-500">Aucun secteur</p>
+                        ) : (
+                          uniqueSecteurs.map((secteur) => (
+                            <label key={secteur} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-100 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedSecteurs.includes(secteur)}
+                                onChange={() => toggleSecteur(secteur)}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-sm">{secteur}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      {selectedSecteurs.length > 0 && (
+                        <div className="border-t border-gray-200 p-2">
+                          <button
+                            onClick={() => setSelectedSecteurs([])}
+                            className="w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                          >
+                            Effacer
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </th>
             <SortHeader field="age">Age</SortHeader>
-            {/* Date column with filter */}
+            {/* Date column with sort and filter */}
             <th className="relative px-4 py-3 font-medium text-gray-900">
-              <div
-                ref={dateFilterRef}
-                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
-                onClick={() => setShowDateFilter(!showDateFilter)}
-              >
-                Date
-                <Filter className={`h-3 w-3 ${dateFilter.start ? "text-blue-600" : "text-gray-400"}`} />
-              </div>
-              {showDateFilter && (
-                <div className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
-                  <div className="space-y-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Du</label>
-                      <input
-                        type="date"
-                        value={dateFilter.start}
-                        onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })}
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Au (optionnel)</label>
-                      <input
-                        type="date"
-                        value={dateFilter.end}
-                        onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })}
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
-                      />
-                    </div>
-                  </div>
-                  {dateFilter.start && (
-                    <button
-                      onClick={() => setDateFilter({ start: "", end: "" })}
-                      className="mt-2 w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                  onClick={() => handleSort("date")}
+                >
+                  Date
+                  <SortIcon field="date" />
+                </button>
+                <div ref={dateFilterRef} className="relative">
+                  <button
+                    className="flex items-center gap-1 p-1 rounded hover:bg-gray-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDateFilter(!showDateFilter);
+                    }}
+                  >
+                    <Filter className={`h-3 w-3 ${dateFilter.start ? "text-blue-600" : "text-gray-400"}`} />
+                  </button>
+                  {showDateFilter && (
+                    <div
+                      className="absolute left-0 top-full z-10 mt-1 w-64 rounded-md border border-gray-200 bg-white p-3 shadow-lg"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      Effacer
-                    </button>
-                  )}
-                </div>
-              )}
-            </th>
-            {/* Type column with filter */}
-            <th className="relative px-4 py-3 font-medium text-gray-900">
-              <div
-                ref={typeFilterRef}
-                className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
-                onClick={() => setShowTypeFilter(!showTypeFilter)}
-              >
-                Type
-                <Filter className={`h-3 w-3 ${selectedTypes.length > 0 ? "text-blue-600" : "text-gray-400"}`} />
-                {selectedTypes.length > 0 && (
-                  <span className="ml-1 rounded-full bg-blue-600 px-1.5 text-xs text-white">
-                    {selectedTypes.length}
-                  </span>
-                )}
-              </div>
-              {showTypeFilter && (
-                <div className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg">
-                  <div className="max-h-48 overflow-y-auto p-2">
-                    {Object.entries(typeLabels).map(([type, label]) => (
-                      <label key={type} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-100 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedTypes.includes(type as TypeObservation)}
-                          onChange={() => toggleType(type as TypeObservation)}
-                          className="rounded border-gray-300"
-                        />
-                        <span className="text-sm">{label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  {selectedTypes.length > 0 && (
-                    <div className="border-t border-gray-200 p-2">
-                      <button
-                        onClick={() => setSelectedTypes([])}
-                        className="w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-                      >
-                        Effacer
-                      </button>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700">Du</label>
+                          <input
+                            type="date"
+                            value={dateFilter.start}
+                            onChange={(e) => setDateFilter({ ...dateFilter, start: e.target.value })}
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-gray-700">Au (optionnel)</label>
+                          <input
+                            type="date"
+                            value={dateFilter.end}
+                            onChange={(e) => setDateFilter({ ...dateFilter, end: e.target.value })}
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                      {dateFilter.start && (
+                        <button
+                          onClick={() => setDateFilter({ start: "", end: "" })}
+                          className="mt-2 w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                        >
+                          Effacer
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+              </div>
+            </th>
+            {/* Type column with sort and filter */}
+            <th className="relative px-4 py-3 font-medium text-gray-900">
+              <div className="flex items-center gap-2">
+                <button
+                  className="flex items-center gap-1 cursor-pointer hover:text-blue-600"
+                  onClick={() => handleSort("type")}
+                >
+                  Type
+                  <SortIcon field="type" />
+                </button>
+                <div ref={typeFilterRef} className="relative">
+                  <button
+                    className="flex items-center gap-1 p-1 rounded hover:bg-gray-200"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTypeFilter(!showTypeFilter);
+                    }}
+                  >
+                    <Filter className={`h-3 w-3 ${selectedTypes.length > 0 ? "text-blue-600" : "text-gray-400"}`} />
+                    {selectedTypes.length > 0 && (
+                      <span className="rounded-full bg-blue-600 px-1.5 text-xs text-white">
+                        {selectedTypes.length}
+                      </span>
+                    )}
+                  </button>
+                  {showTypeFilter && (
+                    <div
+                      className="absolute left-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="max-h-48 overflow-y-auto p-2">
+                        {Object.entries(typeLabels).map(([type, label]) => (
+                          <label key={type} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-100 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedTypes.includes(type as TypeObservation)}
+                              onChange={() => toggleType(type as TypeObservation)}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm">{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {selectedTypes.length > 0 && (
+                        <div className="border-t border-gray-200 p-2">
+                          <button
+                            onClick={() => setSelectedTypes([])}
+                            className="w-full rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                          >
+                            Effacer
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </th>
             <th className="px-4 py-3 font-medium text-gray-900">Contenu</th>
             <th className="px-4 py-3 font-medium text-gray-900">Actions</th>
