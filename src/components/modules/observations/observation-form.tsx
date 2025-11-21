@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Save, X, Plus, Trash2 } from "lucide-react";
 import { Button, Input, PatientSearch } from "@/components/ui";
-import { useCreateObservation, useCreateTodo } from "@/hooks";
-import { TypeObservation, Patient, TypeTodo, UrgenceTodo } from "@/types";
+import { useCreateObservation, useUpdateObservation, useCreateTodo } from "@/hooks";
+import { TypeObservation, Patient, TypeTodo, UrgenceTodo, Observation } from "@/types";
 import { calculateAgeInDays } from "@/lib/date-utils";
 
 interface ObservationFormProps {
   patientId?: string;
   consultationId?: string;
+  observation?: Observation; // For edit mode
   onSuccess?: () => void;
   onCancel?: () => void;
 }
@@ -52,19 +53,29 @@ interface TodoToCreate {
 export function ObservationForm({
   patientId,
   consultationId,
+  observation,
   onSuccess,
   onCancel,
 }: ObservationFormProps) {
-  const [selectedPatientId, setSelectedPatientId] = useState(patientId || "");
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [typeObservation, setTypeObservation] = useState<TypeObservation>(
-    TypeObservation.CONSULTATION
+  const isEditMode = !!observation;
+
+  const [selectedPatientId, setSelectedPatientId] = useState(
+    observation?.patient_id || patientId || ""
   );
-  const [contenu, setContenu] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(
+    observation?.patient || null
+  );
+  const [date, setDate] = useState(
+    observation?.date || new Date().toISOString().split("T")[0]
+  );
+  const [typeObservation, setTypeObservation] = useState<TypeObservation>(
+    observation?.type_observation || TypeObservation.CONSULTATION
+  );
+  const [contenu, setContenu] = useState(observation?.contenu || "");
   const [todos, setTodos] = useState<TodoToCreate[]>([]);
 
   const createObservation = useCreateObservation();
+  const updateObservation = useUpdateObservation();
   const createTodo = useCreateTodo();
 
   const handlePatientChange = (id: string, patient?: Patient) => {
@@ -106,26 +117,39 @@ export function ObservationForm({
       ageInDays = calculateAgeInDays(selectedPatient.date_naissance, date);
     }
 
-    const observation = await createObservation.mutateAsync({
-      patient_id: selectedPatientId,
-      consultation_id: consultationId,
-      date,
-      type_observation: typeObservation,
-      contenu,
-      age_patient_jours: ageInDays,
-    });
+    if (isEditMode && observation) {
+      // Update existing observation
+      await updateObservation.mutateAsync({
+        id: observation.id,
+        patient_id: selectedPatientId,
+        date,
+        type_observation: typeObservation,
+        contenu,
+        age_patient_jours: ageInDays,
+      });
+    } else {
+      // Create new observation
+      const newObservation = await createObservation.mutateAsync({
+        patient_id: selectedPatientId,
+        consultation_id: consultationId,
+        date,
+        type_observation: typeObservation,
+        contenu,
+        age_patient_jours: ageInDays,
+      });
 
-    // Create todos if any
-    for (const todo of todos) {
-      if (todo.contenu.trim()) {
-        await createTodo.mutateAsync({
-          patient_id: selectedPatientId,
-          observation_id: observation.id,
-          contenu: todo.contenu,
-          type_todo: todo.type_todo,
-          urgence: todo.urgence,
-          date_echeance: todo.date_echeance || undefined,
-        });
+      // Create todos if any (only for new observations)
+      for (const todo of todos) {
+        if (todo.contenu.trim()) {
+          await createTodo.mutateAsync({
+            patient_id: selectedPatientId,
+            observation_id: newObservation.id,
+            contenu: todo.contenu,
+            type_todo: todo.type_todo,
+            urgence: todo.urgence,
+            date_echeance: todo.date_echeance || undefined,
+          });
+        }
       }
     }
 
@@ -208,87 +232,89 @@ export function ObservationForm({
         />
       </div>
 
-      {/* Todos section */}
-      <div className="border-t border-gray-200 pt-4">
-        <div className="mb-3 flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-700">Taches à faire</label>
-          <button
-            type="button"
-            onClick={handleAddTodo}
-            className="flex items-center gap-1 rounded-md bg-orange-50 px-3 py-1.5 text-sm text-orange-700 hover:bg-orange-100"
-          >
-            <Plus className="h-4 w-4" />
-            Nouveau todo
-          </button>
-        </div>
+      {/* Todos section - only for new observations */}
+      {!isEditMode && (
+        <div className="border-t border-gray-200 pt-4">
+          <div className="mb-3 flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Taches à faire</label>
+            <button
+              type="button"
+              onClick={handleAddTodo}
+              className="flex items-center gap-1 rounded-md bg-orange-50 px-3 py-1.5 text-sm text-orange-700 hover:bg-orange-100"
+            >
+              <Plus className="h-4 w-4" />
+              Nouveau todo
+            </button>
+          </div>
 
-        {todos.length > 0 && (
-          <div className="space-y-3">
-            {todos.map((todo) => (
-              <div key={todo.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <textarea
-                      value={todo.contenu}
-                      onChange={(e) => handleTodoChange(todo.id, "contenu", e.target.value)}
-                      placeholder="Description de la tache..."
-                      rows={2}
-                      className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTodo(todo.id)}
-                      className="text-gray-400 hover:text-red-600"
-                      title="Supprimer"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="mb-0.5 block text-xs text-gray-600">Type</label>
-                      <select
-                        value={todo.type_todo}
-                        onChange={(e) => handleTodoChange(todo.id, "type_todo", e.target.value)}
-                        className="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs"
-                      >
-                        {typeTodoOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-xs text-gray-600">Urgence</label>
-                      <select
-                        value={todo.urgence}
-                        onChange={(e) => handleTodoChange(todo.id, "urgence", e.target.value)}
-                        className="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs"
-                      >
-                        {urgenceOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-xs text-gray-600">Echéance</label>
-                      <input
-                        type="date"
-                        value={todo.date_echeance || ""}
-                        onChange={(e) => handleTodoChange(todo.id, "date_echeance", e.target.value)}
-                        className="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+          {todos.length > 0 && (
+            <div className="space-y-3">
+              {todos.map((todo) => (
+                <div key={todo.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2">
+                      <textarea
+                        value={todo.contenu}
+                        onChange={(e) => handleTodoChange(todo.id, "contenu", e.target.value)}
+                        placeholder="Description de la tache..."
+                        rows={2}
+                        className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-sm"
                       />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTodo(todo.id)}
+                        className="text-gray-400 hover:text-red-600"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="mb-0.5 block text-xs text-gray-600">Type</label>
+                        <select
+                          value={todo.type_todo}
+                          onChange={(e) => handleTodoChange(todo.id, "type_todo", e.target.value)}
+                          className="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                        >
+                          {typeTodoOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-xs text-gray-600">Urgence</label>
+                        <select
+                          value={todo.urgence}
+                          onChange={(e) => handleTodoChange(todo.id, "urgence", e.target.value)}
+                          className="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                        >
+                          {urgenceOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-0.5 block text-xs text-gray-600">Echéance</label>
+                        <input
+                          type="date"
+                          value={todo.date_echeance || ""}
+                          onChange={(e) => handleTodoChange(todo.id, "date_echeance", e.target.value)}
+                          className="block w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end gap-3">
         {onCancel && (
@@ -297,9 +323,9 @@ export function ObservationForm({
             Annuler
           </Button>
         )}
-        <Button type="submit" isLoading={createObservation.isPending}>
+        <Button type="submit" isLoading={createObservation.isPending || updateObservation.isPending}>
           <Save className="mr-2 h-4 w-4" />
-          Enregistrer
+          {isEditMode ? "Mettre à jour" : "Enregistrer"}
         </Button>
       </div>
     </form>
