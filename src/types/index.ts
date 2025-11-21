@@ -49,6 +49,7 @@ export interface Patient {
   notes?: string;
   resume_ia?: string;
   resume_updated_at?: string;
+  favoris?: boolean;
   created_at?: string;
   updated_at?: string;
 }

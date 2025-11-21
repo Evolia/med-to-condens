@@ -192,3 +192,65 @@ export function useSectors() {
     enabled: !!user,
   });
 }
+
+export function useToggleFavoris() {
+  const queryClient = useQueryClient();
+  const supabase = createBrowserClient();
+
+  return useMutation({
+    mutationFn: async ({ id, favoris }: { id: string; favoris: boolean }) => {
+      const { data, error } = await supabase
+        .from("patients")
+        .update({ favoris })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Patient;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [PATIENTS_KEY] });
+      queryClient.invalidateQueries({ queryKey: [PATIENTS_KEY, data.id] });
+    },
+  });
+}
+
+interface MergeResult {
+  success: boolean;
+  target_id: string;
+  source_id: string;
+  observations_moved: number;
+  todos_moved: number;
+}
+
+export function useMergePatients() {
+  const queryClient = useQueryClient();
+  const supabase = createBrowserClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      targetId,
+      sourceId,
+    }: {
+      targetId: string;
+      sourceId: string;
+    }) => {
+      const { data, error } = await supabase.rpc("merge_patients", {
+        p_target_id: targetId,
+        p_source_id: sourceId,
+        p_user_id: user?.id,
+      });
+
+      if (error) throw error;
+      return data as MergeResult;
+    },
+    onSuccess: () => {
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: [PATIENTS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ["observations"] });
+      queryClient.invalidateQueries({ queryKey: ["todos"] });
+    },
+  });
+}

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Search, Plus, User, List, Table, ArrowUpDown, Trash2, Filter, X, Calendar } from "lucide-react";
+import { Search, Plus, User, List, Table, ArrowUpDown, Trash2, Filter, X, Calendar, AlertTriangle, Merge } from "lucide-react";
 import { Input, Button } from "@/components/ui";
-import { usePatients, useDeletePatient, useConsultations, useCreateConsultation, useCreateObservation } from "@/hooks";
+import { usePatients, useDeletePatient, useConsultations, useCreateConsultation, useCreateObservation, useToggleFavoris, useMergePatients } from "@/hooks";
 import { Patient, ModuleType, TypeObservation } from "@/types";
 import { useTabsStore } from "@/stores/tabs-store";
 import { calculateAge, formatDate, calculateAgeInDays } from "@/lib/date-utils";
@@ -35,8 +35,20 @@ export function PatientList() {
   const [isCreatingConsultation, setIsCreatingConsultation] = useState(false);
   const planifierRef = useRef<HTMLDivElement>(null);
 
+  // Favoris filter state
+  const [showFavorisOnly, setShowFavorisOnly] = useState(false);
+
+  // Merge state
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [mergeSourcePatient, setMergeSourcePatient] = useState<Patient | null>(null);
+  const [mergeTargetPatient, setMergeTargetPatient] = useState<Patient | null>(null);
+  const [isMerging, setIsMerging] = useState(false);
+  const mergeModalRef = useRef<HTMLDivElement>(null);
+
   const { data: patients, isLoading } = usePatients();
   const deletePatient = useDeletePatient();
+  const toggleFavoris = useToggleFavoris();
+  const mergePatients = useMergePatients();
   const { addTab, tabs } = useTabsStore();
   const { data: consultations } = useConsultations();
   const createConsultation = useCreateConsultation();
@@ -92,6 +104,25 @@ export function PatientList() {
     }
   }, [showPlanifierModal]);
 
+  // Close merge modal on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        mergeModalRef.current &&
+        !mergeModalRef.current.contains(event.target as Node)
+      ) {
+        setShowMergeModal(false);
+        setMergeSourcePatient(null);
+        setMergeTargetPatient(null);
+      }
+    };
+
+    if (showMergeModal) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMergeModal]);
+
   // Filter and sort patients locally for instant feedback
   const filteredPatients = useMemo(() => {
     if (!patients) return [];
@@ -115,6 +146,11 @@ export function PatientList() {
       });
     }
 
+    // Filter by favoris
+    if (showFavorisOnly) {
+      result = result.filter((patient) => patient.favoris);
+    }
+
     // Then filter by secteur tags
     if (secteurFilterValue.trim()) {
       const filterTags = secteurFilterValue
@@ -135,8 +171,12 @@ export function PatientList() {
       });
     }
 
-    // Then sort
+    // Then sort (favoris first, then by selected field)
     return [...result].sort((a, b) => {
+      // Favoris always first
+      if (a.favoris && !b.favoris) return -1;
+      if (!a.favoris && b.favoris) return 1;
+
       let comparison = 0;
 
       switch (sortField) {
@@ -165,7 +205,7 @@ export function PatientList() {
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [patients, searchTerm, secteurFilterValue, sortField, sortDirection]);
+  }, [patients, searchTerm, secteurFilterValue, sortField, sortDirection, showFavorisOnly]);
 
   const handlePatientClick = (patient: Patient) => {
     addTab({
@@ -198,6 +238,49 @@ export function PatientList() {
   const handleDelete = async (patientId: string, patientName: string) => {
     if (confirm(`Voulez-vous vraiment supprimer le dossier de ${patientName} ?`)) {
       await deletePatient.mutateAsync(patientId);
+    }
+  };
+
+  const handleToggleFavoris = async (e: React.MouseEvent, patient: Patient) => {
+    e.stopPropagation();
+    await toggleFavoris.mutateAsync({
+      id: patient.id,
+      favoris: !patient.favoris,
+    });
+  };
+
+  const handleStartMerge = (patient: Patient) => {
+    setMergeSourcePatient(patient);
+    setShowMergeModal(true);
+  };
+
+  const handleSelectMergeTarget = (patient: Patient) => {
+    if (patient.id === mergeSourcePatient?.id) return;
+    setMergeTargetPatient(patient);
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!mergeSourcePatient || !mergeTargetPatient) return;
+
+    setIsMerging(true);
+    try {
+      const result = await mergePatients.mutateAsync({
+        targetId: mergeTargetPatient.id,
+        sourceId: mergeSourcePatient.id,
+      });
+
+      alert(
+        `Fusion reussie !\n${result.observations_moved} observations et ${result.todos_moved} taches ont ete deplacees vers ${mergeTargetPatient.nom} ${mergeTargetPatient.prenom}.`
+      );
+
+      setShowMergeModal(false);
+      setMergeSourcePatient(null);
+      setMergeTargetPatient(null);
+    } catch (error) {
+      console.error("Merge error:", error);
+      alert("Erreur lors de la fusion des dossiers");
+    } finally {
+      setIsMerging(false);
     }
   };
 
@@ -417,6 +500,18 @@ export function PatientList() {
               leftIcon={<Search className="h-4 w-4" />}
             />
           </div>
+          <button
+            onClick={() => setShowFavorisOnly(!showFavorisOnly)}
+            className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              showFavorisOnly
+                ? "bg-red-50 text-red-700 border border-red-200"
+                : "text-gray-600 hover:bg-gray-100 border border-gray-200"
+            }`}
+            title={showFavorisOnly ? "Afficher tous les patients" : "Afficher uniquement les favoris"}
+          >
+            <AlertTriangle className={`h-4 w-4 ${showFavorisOnly ? "text-red-600" : "text-gray-400"}`} />
+            Favoris
+          </button>
           <Button onClick={handleNewPatient}>
             <Plus className="mr-2 h-4 w-4" />
             Nouveau dossier
@@ -442,38 +537,60 @@ export function PatientList() {
         ) : viewMode === "list" ? (
           <div className="divide-y divide-gray-100">
             {filteredPatients.map((patient) => (
-              <button
+              <div
                 key={patient.id}
-                onClick={() => handlePatientClick(patient)}
-                className="w-full px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                className="w-full px-4 py-3 text-left transition-colors hover:bg-gray-50 flex items-center gap-3"
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {patient.nom.toUpperCase()} {patient.prenom}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {patient.date_naissance
-                        ? calculateAge(patient.date_naissance)
-                        : "Date de naissance non renseignee"}
-                      {patient.secteur && ` • ${patient.secteur}`}
-                    </p>
+                <button
+                  onClick={(e) => handleToggleFavoris(e, patient)}
+                  className={`p-1 rounded transition-colors ${
+                    patient.favoris
+                      ? "text-red-600 hover:text-red-700"
+                      : "text-gray-300 hover:text-red-400"
+                  }`}
+                  title={patient.favoris ? "Retirer des favoris" : "Ajouter aux favoris"}
+                >
+                  <AlertTriangle className="h-4 w-4" fill={patient.favoris ? "currentColor" : "none"} />
+                </button>
+                <button
+                  onClick={() => handlePatientClick(patient)}
+                  className="flex-1 text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {patient.nom.toUpperCase()} {patient.prenom}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {patient.date_naissance
+                          ? calculateAge(patient.date_naissance)
+                          : "Date de naissance non renseignee"}
+                        {patient.secteur && ` • ${patient.secteur}`}
+                      </p>
+                    </div>
+                    {patient.sexe && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          patient.sexe === "M"
+                            ? "bg-blue-100 text-blue-700"
+                            : patient.sexe === "F"
+                            ? "bg-pink-100 text-pink-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {patient.sexe}
+                      </span>
+                    )}
                   </div>
-                  {patient.sexe && (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        patient.sexe === "M"
-                          ? "bg-blue-100 text-blue-700"
-                          : patient.sexe === "F"
-                          ? "bg-pink-100 text-pink-700"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {patient.sexe}
-                    </span>
-                  )}
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={() => handleStartMerge(patient)}
+                  className="p-1 text-gray-400 hover:text-blue-600"
+                  title="Fusionner avec un autre dossier"
+                >
+                  <Merge className="h-4 w-4" />
+                </button>
+              </div>
             ))}
           </div>
         ) : (
@@ -545,6 +662,17 @@ export function PatientList() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 relative">
                       <button
+                        onClick={(e) => handleToggleFavoris(e, patient)}
+                        className={`transition-colors ${
+                          patient.favoris
+                            ? "text-red-600 hover:text-red-700"
+                            : "text-gray-400 hover:text-red-500"
+                        }`}
+                        title={patient.favoris ? "Retirer des favoris" : "Ajouter aux favoris"}
+                      >
+                        <AlertTriangle className="h-4 w-4" fill={patient.favoris ? "currentColor" : "none"} />
+                      </button>
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePlanifier(patient.id);
@@ -553,6 +681,16 @@ export function PatientList() {
                         title="Planifier"
                       >
                         <Calendar className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartMerge(patient);
+                        }}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Fusionner"
+                      >
+                        <Merge className="h-4 w-4" />
                       </button>
                       <button
                         onClick={(e) => {
@@ -633,6 +771,120 @@ export function PatientList() {
           </table>
         )}
       </div>
+
+      {/* Merge Modal */}
+      {showMergeModal && mergeSourcePatient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div
+            ref={mergeModalRef}
+            className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Fusionner les dossiers patients
+              </h3>
+              <button
+                onClick={() => {
+                  setShowMergeModal(false);
+                  setMergeSourcePatient(null);
+                  setMergeTargetPatient(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">
+                <strong>Attention :</strong> Cette action fusionnera le dossier de{" "}
+                <strong>{mergeSourcePatient.nom} {mergeSourcePatient.prenom}</strong> dans le dossier cible.
+                Toutes les observations et taches seront transferees. Le dossier source sera supprime.
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                Dossier a fusionner (sera supprime) :
+              </h4>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="font-medium text-gray-900">
+                  {mergeSourcePatient.nom.toUpperCase()} {mergeSourcePatient.prenom}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {mergeSourcePatient.date_naissance && calculateAge(mergeSourcePatient.date_naissance)}
+                  {mergeSourcePatient.secteur && ` • ${mergeSourcePatient.secteur}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                Selectionner le dossier cible (sera conserve) :
+              </h4>
+              {mergeTargetPatient ? (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {mergeTargetPatient.nom.toUpperCase()} {mergeTargetPatient.prenom}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {mergeTargetPatient.date_naissance && calculateAge(mergeTargetPatient.date_naissance)}
+                      {mergeTargetPatient.secteur && ` • ${mergeTargetPatient.secteur}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setMergeTargetPatient(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="border border-gray-200 rounded-md max-h-48 overflow-auto">
+                  {patients
+                    ?.filter((p) => p.id !== mergeSourcePatient.id)
+                    .map((patient) => (
+                      <button
+                        key={patient.id}
+                        onClick={() => handleSelectMergeTarget(patient)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                      >
+                        <p className="font-medium text-gray-900">
+                          {patient.nom.toUpperCase()} {patient.prenom}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {patient.date_naissance && calculateAge(patient.date_naissance)}
+                          {patient.secteur && ` • ${patient.secteur}`}
+                        </p>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowMergeModal(false);
+                  setMergeSourcePatient(null);
+                  setMergeTargetPatient(null);
+                }}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleConfirmMerge}
+                disabled={!mergeTargetPatient || isMerging}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {isMerging ? "Fusion en cours..." : "Confirmer la fusion"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
