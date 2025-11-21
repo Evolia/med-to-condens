@@ -40,16 +40,12 @@ export function TodoForm({
   const [typeTodo, setTypeTodo] = useState<TypeTodo>(TypeTodo.RAPPEL);
   const [urgence, setUrgence] = useState<UrgenceTodo>(UrgenceTodo.NORMALE);
   const [dateEcheance, setDateEcheance] = useState("");
+  const [tags, setTags] = useState("");
 
   const createTodo = useCreateTodo();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!selectedPatientId) {
-      alert("Veuillez selectionner un patient");
-      return;
-    }
 
     if (!contenu.trim()) {
       alert("Veuillez saisir le contenu de la tache");
@@ -57,11 +53,12 @@ export function TodoForm({
     }
 
     await createTodo.mutateAsync({
-      patient_id: selectedPatientId,
+      patient_id: selectedPatientId || undefined,
       contenu,
       type_todo: typeTodo,
       urgence,
       date_echeance: dateEcheance || undefined,
+      tags: tags || undefined,
     });
 
     onSuccess?.();
@@ -72,13 +69,12 @@ export function TodoForm({
       {!patientId && (
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Patient
+            Patient <span className="text-xs text-gray-500">(facultatif)</span>
           </label>
           <PatientSearch
             value={selectedPatientId}
             onChange={(id) => setSelectedPatientId(id)}
-            placeholder="Rechercher un patient..."
-            required
+            placeholder="Rechercher un patient (optionnel)..."
           />
         </div>
       )}
@@ -137,6 +133,19 @@ export function TodoForm({
           type="date"
           value={dateEcheance}
           onChange={(e) => setDateEcheance(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Tags <span className="text-xs text-gray-500">(séparés par des virgules)</span>
+        </label>
+        <input
+          type="text"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          placeholder="Ex: urgent, médical, suivi..."
+          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 

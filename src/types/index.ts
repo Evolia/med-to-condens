@@ -87,12 +87,13 @@ export interface Todo {
   id: string;
   user_id?: string;
   observation_id?: string;
-  patient_id: string;
+  patient_id?: string;
   contenu: string;
   type_todo: TypeTodo;
   urgence: UrgenceTodo;
   date_echeance?: string;
   annotations?: string;
+  tags?: string;
   completed: boolean;
   completed_at?: string;
   created_at?: string;

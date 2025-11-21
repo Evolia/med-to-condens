@@ -139,6 +139,15 @@ export function TodoItem({ todo, showPatient = false }: TodoItemProps) {
                 Echeance: {formatDate(todo.date_echeance)}
               </span>
             )}
+            {todo.tags && (
+              <div className="flex flex-wrap gap-1">
+                {todo.tags.split(",").map((tag, i) => (
+                  <span key={i} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">
+                    {tag.trim()}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Annotations */}
