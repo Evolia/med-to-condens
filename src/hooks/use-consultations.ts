@@ -6,6 +6,7 @@ import { Consultation } from "@/types";
 import { useAuth } from "./use-auth";
 
 const CONSULTATIONS_KEY = "consultations";
+const TAGS_KEY = "tags";
 
 export function useConsultations(filters?: { date?: string }) {
   const { user } = useAuth();
@@ -76,8 +77,12 @@ export function useCreateConsultation() {
       if (error) throw error;
       return data as Consultation;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [CONSULTATIONS_KEY] });
+      // Invalidate tags cache if consultation has tags
+      if (data.tags) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "consultation-tags"] });
+      }
     },
   });
 }
@@ -111,6 +116,10 @@ export function useUpdateConsultation() {
       queryClient.invalidateQueries({
         queryKey: [CONSULTATIONS_KEY, data.id],
       });
+      // Invalidate tags cache if consultation has tags
+      if (data.tags) {
+        queryClient.invalidateQueries({ queryKey: [TAGS_KEY, "consultation-tags"] });
+      }
     },
   });
 }
