@@ -183,7 +183,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             </div>
           ) : totalResults === 0 ? (
             <div className="text-center text-gray-500 py-8">
-              Aucun résultat pour "{searchTerm}"
+              Aucun résultat pour &ldquo;{searchTerm}&rdquo;
             </div>
           ) : (
             <div className="space-y-4">

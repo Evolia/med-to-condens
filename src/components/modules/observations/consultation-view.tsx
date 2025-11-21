@@ -49,10 +49,10 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [editingField, setEditingField] = useState<"titre" | "type" | "date" | "tags" | null>(null);
   const [editValue, setEditValue] = useState("");
   const editingContainerRef = useRef<HTMLDivElement>(null);
-  const observationsRef = useRef(observations);
 
   const { data: consultation, isLoading } = useConsultation(consultationId);
   const { data: observations } = useObservations({ consultationId });
+  const observationsRef = useRef(observations);
   const { data: patients } = usePatients();
   const createBulkObservations = useCreateBulkObservations();
   const createPatient = useCreatePatient();

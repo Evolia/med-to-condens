@@ -151,13 +151,36 @@ CREATE INDEX idx_observations_consultation_id ON observations(consultation_id);
 CREATE INDEX idx_observations_date ON observations(date DESC);
 
 -- -----------------------------------------------------------------------------
+-- Table: work_sessions (sessions de travail pour organiser les todos)
+-- -----------------------------------------------------------------------------
+CREATE TABLE work_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+  name TEXT NOT NULL,
+  date DATE,
+  description TEXT,
+
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_work_sessions_user_id ON work_sessions(user_id);
+CREATE INDEX idx_work_sessions_completed ON work_sessions(completed);
+CREATE INDEX idx_work_sessions_date ON work_sessions(date DESC);
+
+-- -----------------------------------------------------------------------------
 -- Table: todos
 -- -----------------------------------------------------------------------------
 CREATE TABLE todos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+  patient_id UUID REFERENCES patients(id) ON DELETE CASCADE,
   observation_id UUID REFERENCES observations(id) ON DELETE SET NULL,
+  work_session_id UUID REFERENCES work_sessions(id) ON DELETE SET NULL,
 
   contenu TEXT NOT NULL,
   type_todo type_todo NOT NULL DEFAULT 'autre',
@@ -165,6 +188,7 @@ CREATE TABLE todos (
 
   date_echeance DATE,
   annotations TEXT,
+  tags TEXT, -- Comma-separated tags
 
   completed BOOLEAN DEFAULT FALSE,
   completed_at TIMESTAMPTZ,
@@ -176,6 +200,7 @@ CREATE TABLE todos (
 CREATE INDEX idx_todos_user_id ON todos(user_id);
 CREATE INDEX idx_todos_patient_id ON todos(patient_id);
 CREATE INDEX idx_todos_observation_id ON todos(observation_id);
+CREATE INDEX idx_todos_work_session_id ON todos(work_session_id);
 CREATE INDEX idx_todos_completed ON todos(completed);
 CREATE INDEX idx_todos_urgence ON todos(urgence);
 CREATE INDEX idx_todos_date_echeance ON todos(date_echeance);
@@ -304,6 +329,10 @@ CREATE TRIGGER update_todos_updated_at
   BEFORE UPDATE ON todos
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_work_sessions_updated_at
+  BEFORE UPDATE ON work_sessions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Fonction de recherche de patients avec similarité
 CREATE OR REPLACE FUNCTION search_patients(
   p_user_id UUID,
@@ -388,6 +417,7 @@ ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consultations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE observations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE work_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mail_imports ENABLE ROW LEVEL SECURITY;
 
 -- Policies pour patients
@@ -458,6 +488,23 @@ CREATE POLICY "Users can delete their own todos"
   ON todos FOR DELETE
   USING (auth.uid() = user_id);
 
+-- Policies pour work_sessions
+CREATE POLICY "Users can view their own work sessions"
+  ON work_sessions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own work sessions"
+  ON work_sessions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own work sessions"
+  ON work_sessions FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own work sessions"
+  ON work_sessions FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- Policies pour mail_imports
 CREATE POLICY "Users can view their own mail imports"
   ON mail_imports FOR SELECT
@@ -484,6 +531,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE patients;
 ALTER PUBLICATION supabase_realtime ADD TABLE consultations;
 ALTER PUBLICATION supabase_realtime ADD TABLE observations;
 ALTER PUBLICATION supabase_realtime ADD TABLE todos;
+ALTER PUBLICATION supabase_realtime ADD TABLE work_sessions;
 
 -- =============================================================================
 -- 7. VERIFICATION DE L'EMAIL AUTORISE (fonction pour le login)
