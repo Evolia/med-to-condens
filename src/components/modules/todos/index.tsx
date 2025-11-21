@@ -31,7 +31,7 @@ function groupTodosByPatient(todos: Todo[]) {
   > = {};
 
   todos.forEach((todo) => {
-    const key = todo.patient_id;
+    const key = todo.patient_id || "no-patient";
     if (!grouped[key]) {
       grouped[key] = {
         patient: todo.patient,
