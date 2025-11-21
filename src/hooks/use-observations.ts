@@ -22,7 +22,7 @@ export function useObservations(filters?: {
         .from("observations")
         .select(`
           *,
-          patient:patients(id, nom, prenom, date_naissance)
+          patient:patients(id, nom, prenom, date_naissance, secteur)
         `)
         .order("date", { ascending: false })
         .order("created_at", { ascending: false });
@@ -66,7 +66,7 @@ export function useObservation(observationId: string | undefined) {
         .from("observations")
         .select(`
           *,
-          patient:patients(id, nom, prenom, date_naissance)
+          patient:patients(id, nom, prenom, date_naissance, secteur)
         `)
         .eq("id", observationId)
         .single();
