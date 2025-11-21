@@ -331,7 +331,7 @@ export function ObservationTable({
   }
 
   return (
-    <div className="relative">
+    <div className="pb-48">
       {/* Active filters indicator */}
       {hasActiveFilters && (
         <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 border-b border-blue-100">
@@ -349,8 +349,7 @@ export function ObservationTable({
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[800px]">
+      <table className="w-full text-sm">
         <thead className="bg-gray-50 text-left">
           <tr>
             {showPatient && (
@@ -690,7 +689,6 @@ export function ObservationTable({
           ))}
         </tbody>
       </table>
-      </div>
     </div>
   );
 }
