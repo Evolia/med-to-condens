@@ -639,7 +639,7 @@ export function ObservationTable({
           <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <h3 className="text-lg font-medium text-gray-900">
-                Modifier l'observation
+                Modifier l&apos;observation
               </h3>
               <button
                 onClick={handleEditCancel}
