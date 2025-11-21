@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag } from "lucide-react";
+import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag, Download } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import {
   useConsultation,
@@ -338,6 +338,70 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
     }
   };
 
+  const handleExportText = async () => {
+    if (!consultation || !observations) return;
+
+    try {
+      // Build the text report
+      let text = `${consultation.titre || `Consultation du ${formatDate(consultation.date)}`}\n`;
+      text += `Type: ${consultation.type || "consultation"}\n`;
+      text += `Date: ${formatDate(consultation.date)}\n`;
+      if (consultation.tags) {
+        text += `Tags: ${consultation.tags}\n`;
+      }
+      text += `\n${"=".repeat(60)}\n\n`;
+
+      if (observations.length === 0) {
+        text += "Aucune observation enregistrée.\n";
+      } else {
+        observations.forEach((obs, index) => {
+          if (obs.patient) {
+            text += `${index + 1}. ${obs.patient.nom.toUpperCase()} ${obs.patient.prenom}\n`;
+
+            if (obs.age_patient_jours !== undefined) {
+              const years = Math.floor(obs.age_patient_jours / 365);
+              const months = Math.floor((obs.age_patient_jours % 365) / 30);
+              const days = obs.age_patient_jours % 30;
+
+              if (years > 0) {
+                text += `   Âge: ${years} an${years > 1 ? 's' : ''}`;
+                if (months > 0) text += ` ${months} mois`;
+                text += `\n`;
+              } else if (months > 0) {
+                text += `   Âge: ${months} mois`;
+                if (days > 0) text += ` ${days} jours`;
+                text += `\n`;
+              } else {
+                text += `   Âge: ${days} jour${days > 1 ? 's' : ''}\n`;
+              }
+            }
+
+            if (obs.patient.secteur) {
+              text += `   Secteur: ${obs.patient.secteur}\n`;
+            }
+
+            if (obs.contenu) {
+              text += `\n   ${obs.contenu.split('\n').join('\n   ')}\n`;
+            }
+          } else {
+            text += `${index + 1}. [Patient inconnu]\n`;
+            if (obs.contenu) {
+              text += `\n   ${obs.contenu.split('\n').join('\n   ')}\n`;
+            }
+          }
+          text += `\n${"-".repeat(40)}\n\n`;
+        });
+      }
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(text);
+      alert("Rapport copié dans le presse-papier !");
+    } catch (error) {
+      console.error("Erreur lors de l'export:", error);
+      alert("Erreur lors de la copie dans le presse-papier");
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -486,10 +550,20 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
               )}
             </div>
           </div>
-          <Button onClick={() => setShowNewObservation(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nouvelle observation
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleExportText}
+              title="Exporter en texte"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Exporter
+            </Button>
+            <Button onClick={() => setShowNewObservation(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle observation
+            </Button>
+          </div>
         </div>
       </div>
 
