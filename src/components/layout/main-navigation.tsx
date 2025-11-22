@@ -82,10 +82,10 @@ export function MainNavigation({
                 <button
                   onClick={() => onQuickCreate(module.id)}
                   className={cn(
-                    "flex items-center justify-center h-full px-2 rounded-r-md transition-colors border-l",
+                    "flex items-center justify-center px-2 py-2 rounded-r-md transition-colors border-l",
                     isActive
                       ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                      : "text-gray-500 hover:bg-gray-100 border-gray-200 hover:text-gray-700"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-gray-200 hover:text-gray-900"
                   )}
                   title={`Créer ${
                     module.id === ModuleType.DOSSIERS
