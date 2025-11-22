@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { Save, X, Plus, Trash2 } from "lucide-react";
 import { Button, Input, PatientSearch } from "@/components/ui";
-import { useCreateObservation, useUpdateObservation, useCreateTodo } from "@/hooks";
+import { useCreateObservation, useUpdateObservation, useCreateTodo, useConsultations } from "@/hooks";
 import { TypeObservation, Patient, TypeTodo, UrgenceTodo, Observation } from "@/types";
-import { calculateAgeInDays } from "@/lib/date-utils";
+import { calculateAgeInDays, formatDate } from "@/lib/date-utils";
 
 interface ObservationFormProps {
   patientId?: string;
@@ -72,11 +72,15 @@ export function ObservationForm({
     observation?.type_observation || TypeObservation.CONSULTATION
   );
   const [contenu, setContenu] = useState(observation?.contenu || "");
+  const [selectedConsultationId, setSelectedConsultationId] = useState<string | null>(
+    observation?.consultation_id || consultationId || null
+  );
   const [todos, setTodos] = useState<TodoToCreate[]>([]);
 
   const createObservation = useCreateObservation();
   const updateObservation = useUpdateObservation();
   const createTodo = useCreateTodo();
+  const { data: consultations } = useConsultations();
 
   const handlePatientChange = (id: string, patient?: Patient) => {
     setSelectedPatientId(id);
@@ -122,6 +126,7 @@ export function ObservationForm({
       await updateObservation.mutateAsync({
         id: observation.id,
         patient_id: selectedPatientId,
+        consultation_id: selectedConsultationId || undefined,
         date,
         type_observation: typeObservation,
         contenu,
@@ -131,7 +136,7 @@ export function ObservationForm({
       // Create new observation
       const newObservation = await createObservation.mutateAsync({
         patient_id: selectedPatientId,
-        consultation_id: consultationId,
+        consultation_id: selectedConsultationId || undefined,
         date,
         type_observation: typeObservation,
         contenu,
@@ -217,6 +222,25 @@ export function ObservationForm({
             ))}
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Groupe / Consultation
+        </label>
+        <select
+          value={selectedConsultationId || ""}
+          onChange={(e) => setSelectedConsultationId(e.target.value || null)}
+          className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">Aucune consultation</option>
+          {consultations?.map((consultation) => (
+            <option key={consultation.id} value={consultation.id}>
+              {consultation.titre || `${consultation.type || "Consultation"} du ${formatDate(consultation.date)}`}
+              {consultation.tags && ` - ${consultation.tags.split(",").slice(0, 2).join(", ")}`}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
