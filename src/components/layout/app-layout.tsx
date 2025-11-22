@@ -34,6 +34,11 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, []);
 
   const handleQuickCreate = (module: ModuleType) => {
+    // Switch to the target module first if not already active
+    if (activeModule !== module) {
+      setActiveModule(module);
+    }
+
     if (module === ModuleType.DOSSIERS) {
       // For Dossiers, create a new tab
       addTab({
@@ -43,8 +48,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         title: "Nouveau dossier",
       });
     } else {
-      // For Observations and Todos, trigger the store
-      trigger(module);
+      // For Observations and Todos, trigger the store after a small delay
+      // to ensure the module is fully switched
+      setTimeout(() => {
+        trigger(module);
+      }, 50);
     }
   };
 
