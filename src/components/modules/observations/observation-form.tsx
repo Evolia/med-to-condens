@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Save, X, Plus, Trash2 } from "lucide-react";
 import { Button, Input, PatientSearch } from "@/components/ui";
-import { useCreateObservation, useUpdateObservation, useCreateTodo } from "@/hooks";
+import { useCreateObservation, useUpdateObservation, useCreateTodo, useConsultations } from "@/hooks";
 import { TypeObservation, Patient, TypeTodo, UrgenceTodo, Observation } from "@/types";
-import { calculateAgeInDays } from "@/lib/date-utils";
+import { calculateAgeInDays, formatDate } from "@/lib/date-utils";
 
 interface ObservationFormProps {
   patientId?: string;
@@ -72,15 +72,62 @@ export function ObservationForm({
     observation?.type_observation || TypeObservation.CONSULTATION
   );
   const [contenu, setContenu] = useState(observation?.contenu || "");
+  const [selectedConsultationId, setSelectedConsultationId] = useState<string | null>(
+    observation?.consultation_id || consultationId || null
+  );
+  const [consultationSearchText, setConsultationSearchText] = useState("");
+  const [showConsultationDropdown, setShowConsultationDropdown] = useState(false);
   const [todos, setTodos] = useState<TodoToCreate[]>([]);
+
+  const consultationDropdownRef = useRef<HTMLDivElement>(null);
 
   const createObservation = useCreateObservation();
   const updateObservation = useUpdateObservation();
   const createTodo = useCreateTodo();
+  const { data: consultations } = useConsultations();
+
+  // Find the selected consultation to display its label
+  const selectedConsultation = consultations?.find(c => c.id === selectedConsultationId);
+
+  // Filter consultations based on search text
+  const filteredConsultations = useMemo(() => {
+    if (!consultations) return [];
+    if (!consultationSearchText.trim()) return consultations;
+
+    const search = consultationSearchText.toLowerCase();
+    return consultations.filter(consultation => {
+      const label = consultation.titre || `${consultation.type || "Consultation"} du ${formatDate(consultation.date)}`;
+      const tags = consultation.tags || "";
+      return label.toLowerCase().includes(search) || tags.toLowerCase().includes(search);
+    });
+  }, [consultations, consultationSearchText]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        consultationDropdownRef.current &&
+        !consultationDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowConsultationDropdown(false);
+      }
+    };
+
+    if (showConsultationDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showConsultationDropdown]);
 
   const handlePatientChange = (id: string, patient?: Patient) => {
     setSelectedPatientId(id);
     setSelectedPatient(patient || null);
+  };
+
+  const handleConsultationSelect = (consultationId: string | null) => {
+    setSelectedConsultationId(consultationId);
+    setConsultationSearchText("");
+    setShowConsultationDropdown(false);
   };
 
   const handleAddTodo = () => {
@@ -122,6 +169,7 @@ export function ObservationForm({
       await updateObservation.mutateAsync({
         id: observation.id,
         patient_id: selectedPatientId,
+        consultation_id: selectedConsultationId || undefined,
         date,
         type_observation: typeObservation,
         contenu,
@@ -131,7 +179,7 @@ export function ObservationForm({
       // Create new observation
       const newObservation = await createObservation.mutateAsync({
         patient_id: selectedPatientId,
-        consultation_id: consultationId,
+        consultation_id: selectedConsultationId || undefined,
         date,
         type_observation: typeObservation,
         contenu,
@@ -217,6 +265,86 @@ export function ObservationForm({
             ))}
           </select>
         </div>
+      </div>
+
+      <div ref={consultationDropdownRef} className="relative">
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Groupe / Consultation
+        </label>
+
+        {/* Display selected consultation or input field */}
+        {selectedConsultationId && !showConsultationDropdown ? (
+          <div className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+            <span className="font-medium text-gray-900">
+              {selectedConsultation?.titre ||
+               `${selectedConsultation?.type || "Consultation"} du ${selectedConsultation?.date ? formatDate(selectedConsultation.date) : ""}`}
+              {selectedConsultation?.tags && (
+                <span className="ml-2 text-gray-500">
+                  - {selectedConsultation.tags.split(",").slice(0, 2).join(", ")}
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedConsultationId(null);
+                setConsultationSearchText("");
+              }}
+              className="text-gray-400 hover:text-gray-600"
+              title="Retirer de la consultation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <input
+            type="text"
+            value={consultationSearchText}
+            onChange={(e) => {
+              setConsultationSearchText(e.target.value);
+              setShowConsultationDropdown(true);
+            }}
+            onFocus={() => setShowConsultationDropdown(true)}
+            placeholder="Rechercher ou sélectionner une consultation..."
+            className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        )}
+
+        {/* Dropdown list */}
+        {showConsultationDropdown && (
+          <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+            <button
+              type="button"
+              onClick={() => handleConsultationSelect(null)}
+              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 border-b border-gray-100"
+            >
+              <span className="text-gray-500 italic">Aucune consultation</span>
+            </button>
+            {filteredConsultations.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-500 italic">
+                Aucune consultation trouvée
+              </div>
+            ) : (
+              filteredConsultations.map((consultation) => (
+                <button
+                  key={consultation.id}
+                  type="button"
+                  onClick={() => handleConsultationSelect(consultation.id)}
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 border-b border-gray-50 last:border-0"
+                >
+                  <div className="font-medium text-gray-900">
+                    {consultation.titre || `${consultation.type || "Consultation"} du ${formatDate(consultation.date)}`}
+                  </div>
+                  {consultation.tags && (
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {consultation.tags.split(",").slice(0, 3).join(", ")}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <div>

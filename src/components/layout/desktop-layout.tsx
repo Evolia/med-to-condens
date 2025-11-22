@@ -10,6 +10,7 @@ interface DesktopLayoutProps {
   activeModule: ModuleType;
   onModuleChange: (module: ModuleType) => void;
   onSearchClick: () => void;
+  onQuickCreate: (module: ModuleType) => void;
 }
 
 export function DesktopLayout({
@@ -17,6 +18,7 @@ export function DesktopLayout({
   activeModule,
   onModuleChange,
   onSearchClick,
+  onQuickCreate,
 }: DesktopLayoutProps) {
   return (
     <div className="flex h-screen flex-col bg-gray-50">
@@ -24,6 +26,7 @@ export function DesktopLayout({
         activeModule={activeModule}
         onModuleChange={onModuleChange}
         onSearchClick={onSearchClick}
+        onQuickCreate={onQuickCreate}
       />
       <TabBar module={activeModule} />
       <main className="flex-1 overflow-auto">{children}</main>

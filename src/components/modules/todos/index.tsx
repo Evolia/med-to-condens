@@ -272,9 +272,8 @@ function TagsGroup({
 export function TodosModule() {
   const [view, setView] = useState<ViewType>("active");
   const [groupBy, setGroupBy] = useState<GroupByType>("patient");
-  const [showNewTodo, setShowNewTodo] = useState(false);
 
-  const { tabs, activeTabId, addTab } = useTabsStore();
+  const { tabs, activeTabId, addTab, removeTab } = useTabsStore();
   const { data: activeTodos, isLoading: loadingActive } = useActiveTodos();
   const { data: completedTodos, isLoading: loadingCompleted } =
     useCompletedTodos();
@@ -322,6 +321,16 @@ export function TodosModule() {
     return <WorkSessionView workSessionId={activeTab.data?.workSessionId || ""} />;
   }
 
+  // If there's an active "new" tab, show the todo form
+  if (activeTab?.type === "new") {
+    return (
+      <TodoForm
+        onSuccess={() => removeTab(activeTab.id)}
+        onCancel={() => removeTab(activeTab.id)}
+      />
+    );
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -363,7 +372,14 @@ export function TodosModule() {
             </button>
           </div>
           {view !== "sessions" && (
-            <Button onClick={() => setShowNewTodo(true)}>
+            <Button onClick={() => {
+              addTab({
+                id: `new-todo-${Date.now()}`,
+                type: "new",
+                module: ModuleType.TODOS,
+                title: "Nouvelle tâche",
+              });
+            }}>
               <Plus className="mr-2 h-4 w-4" />
               Nouvelle tache
             </Button>
@@ -421,11 +437,6 @@ export function TodosModule() {
       <div className="flex-1 overflow-auto">
         {view === "sessions" ? (
           <WorkSessionsList />
-        ) : showNewTodo ? (
-          <TodoForm
-            onSuccess={() => setShowNewTodo(false)}
-            onCancel={() => setShowNewTodo(false)}
-          />
         ) : isLoading ? (
           <div className="flex h-full items-center justify-center p-4">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />

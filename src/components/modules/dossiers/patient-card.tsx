@@ -15,6 +15,7 @@ import {
   Check,
   X,
   Download,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import {
@@ -28,8 +29,9 @@ import {
 } from "@/hooks";
 import { calculateAge, formatDate } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
+import { useAppModule } from "@/components/layout/use-app-module";
 import { PatientForm } from "./patient-form";
-import { TypeObservation } from "@/types";
+import { TypeObservation, ModuleType } from "@/types";
 
 interface PatientCardProps {
   patientId: string;
@@ -53,7 +55,8 @@ export function PatientCard({ patientId }: PatientCardProps) {
   const analyzeMail = useAnalyzeMail();
   const updatePatient = useUpdatePatient();
   const updateObservation = useUpdateObservation();
-  const { removeTab, updateTab } = useTabsStore();
+  const { removeTab, updateTab, addTab } = useTabsStore();
+  const { setActiveModule } = useAppModule();
 
   // Auto-generate summary on first load if no summary exists and there are observations
   useEffect(() => {
@@ -195,6 +198,18 @@ export function PatientCard({ patientId }: PatientCardProps) {
       [TypeObservation.NOTE]: "Note",
     };
     return labels[type] || type;
+  };
+
+  const handleNewObservation = () => {
+    // Switch to Observations module and create a new tab with patient pre-filled
+    setActiveModule(ModuleType.OBSERVATIONS);
+    addTab({
+      id: `new-observation-${Date.now()}`,
+      type: "new",
+      module: ModuleType.OBSERVATIONS,
+      title: "Nouvelle observation",
+      data: { patientId },
+    });
   };
 
   const handleExportPatient = async () => {
@@ -465,10 +480,20 @@ export function PatientCard({ patientId }: PatientCardProps) {
             <h3 className="font-semibold text-gray-900">
               Historique des observations
             </h3>
-            <span className="text-sm text-gray-500">
-              {observations?.length || 0} observation
-              {(observations?.length || 0) !== 1 ? "s" : ""}
-            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleNewObservation}
+              >
+                <Plus className="mr-1 h-3 w-3" />
+                Nouvelle observation
+              </Button>
+              <span className="text-sm text-gray-500">
+                {observations?.length || 0} observation
+                {(observations?.length || 0) !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
 
           {observations && observations.length > 0 ? (

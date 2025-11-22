@@ -129,7 +129,32 @@ export function useDeleteConsultation() {
   const supabase = createBrowserClient();
 
   return useMutation({
-    mutationFn: async (consultationId: string) => {
+    mutationFn: async ({
+      consultationId,
+      deleteObservations = false
+    }: {
+      consultationId: string;
+      deleteObservations?: boolean;
+    }) => {
+      if (deleteObservations) {
+        // Delete all observations linked to this consultation
+        const { error: obsError } = await supabase
+          .from("observations")
+          .delete()
+          .eq("consultation_id", consultationId);
+
+        if (obsError) throw obsError;
+      } else {
+        // Just unlink observations from the consultation
+        const { error: unlinkError } = await supabase
+          .from("observations")
+          .update({ consultation_id: null })
+          .eq("consultation_id", consultationId);
+
+        if (unlinkError) throw unlinkError;
+      }
+
+      // Delete the consultation
       const { error } = await supabase
         .from("consultations")
         .delete()
@@ -139,6 +164,7 @@ export function useDeleteConsultation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [CONSULTATIONS_KEY] });
+      queryClient.invalidateQueries({ queryKey: ["observations"] });
     },
   });
 }
