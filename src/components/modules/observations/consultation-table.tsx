@@ -32,6 +32,8 @@ export function ConsultationTable({ consultations, observations = [] }: Consulta
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
   const [editTagsValue, setEditTagsValue] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [consultationToDelete, setConsultationToDelete] = useState<string | null>(null);
 
   // Filter states
   const [selectedSecteurs, setSelectedSecteurs] = useState<string[]>([]);
@@ -270,9 +272,19 @@ export function ConsultationTable({ consultations, observations = [] }: Consulta
     });
   };
 
-  const handleDelete = async (consultationId: string) => {
-    if (confirm("Voulez-vous vraiment supprimer cette consultation et toutes ses observations ?")) {
-      await deleteConsultation.mutateAsync({ consultationId, deleteObservations: true });
+  const handleDelete = (consultationId: string) => {
+    setConsultationToDelete(consultationId);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async (deleteObservations: boolean) => {
+    if (consultationToDelete) {
+      await deleteConsultation.mutateAsync({
+        consultationId: consultationToDelete,
+        deleteObservations
+      });
+      setShowDeleteModal(false);
+      setConsultationToDelete(null);
     }
   };
 
@@ -314,9 +326,10 @@ export function ConsultationTable({ consultations, observations = [] }: Consulta
   }
 
   return (
-    <div className="pb-48">
-      {/* Active filters indicator */}
-      {hasActiveFilters && (
+    <>
+      <div className="pb-48">
+        {/* Active filters indicator */}
+        {hasActiveFilters && (
         <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 border-b border-blue-100">
           <Filter className="h-4 w-4 text-blue-600" />
           <span className="text-sm text-blue-700">
@@ -675,6 +688,50 @@ export function ConsultationTable({ consultations, observations = [] }: Consulta
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              Supprimer la consultation
+            </h3>
+            <p className="mb-6 text-sm text-gray-600">
+              Que souhaitez-vous faire avec les observations liées à cette consultation ?
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => handleConfirmDelete(false)}
+                className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              >
+                Supprimer uniquement la consultation
+                <span className="block text-xs text-blue-100 mt-1">
+                  Les observations seront conservées sans groupe
+                </span>
+              </button>
+              <button
+                onClick={() => handleConfirmDelete(true)}
+                className="w-full rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+              >
+                Supprimer la consultation et toutes ses observations
+                <span className="block text-xs text-red-100 mt-1">
+                  Attention : cette action est irréversible
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setConsultationToDelete(null);
+                }}
+                className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
