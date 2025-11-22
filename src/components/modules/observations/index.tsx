@@ -10,7 +10,6 @@ import {
   useConsultations,
 } from "@/hooks";
 import { useTabsStore } from "@/stores/tabs-store";
-import { useQuickCreateStore } from "@/stores/quick-create-store";
 import { ModuleType } from "@/types";
 import { ObservationTable } from "./observation-table";
 import { ObservationForm } from "./observation-form";
@@ -21,11 +20,8 @@ type ViewType = "today" | "all" | "group";
 
 export function ObservationsModule() {
   const [view, setView] = useState<ViewType>("today");
-  const [showNewObservation, setShowNewObservation] = useState(false);
-  const [preselectedPatientId, setPreselectedPatientId] = useState<string | undefined>(undefined);
 
-  const { tabs, activeTabId, addTab } = useTabsStore();
-  const { triggerModule, data, clear } = useQuickCreateStore();
+  const { tabs, activeTabId, addTab, removeTab } = useTabsStore();
   const { data: todayObservations, isLoading: loadingToday } =
     useTodayObservations();
   const { data: allObservations, isLoading: loadingAll } = useObservations();
@@ -47,15 +43,6 @@ export function ObservationsModule() {
     }
   }, [tabs, addTab]);
 
-  // Listen for quick create trigger
-  useEffect(() => {
-    if (triggerModule === ModuleType.OBSERVATIONS) {
-      setPreselectedPatientId(data?.patientId);
-      setShowNewObservation(true);
-      clear();
-    }
-  }, [triggerModule, data, clear]);
-
   // Check if we have an active tab for this module
   const activeTab = tabs.find(
     (tab) =>
@@ -65,6 +52,17 @@ export function ObservationsModule() {
   // If there's an active consultation tab, show it
   if (activeTab?.type === "consultation" && activeTab.data?.consultationId) {
     return <ConsultationView consultationId={activeTab.data.consultationId} />;
+  }
+
+  // If there's an active "new" tab, show the observation form
+  if (activeTab?.type === "new") {
+    return (
+      <ObservationForm
+        patientId={activeTab.data?.patientId}
+        onSuccess={() => removeTab(activeTab.id)}
+        onCancel={() => removeTab(activeTab.id)}
+      />
+    );
   }
 
   const handleNewConsultation = async () => {
@@ -140,7 +138,14 @@ export function ObservationsModule() {
           <div className="flex items-center gap-2">
             <Button
               variant="secondary"
-              onClick={() => setShowNewObservation(true)}
+              onClick={() => {
+                addTab({
+                  id: `new-observation-${Date.now()}`,
+                  type: "new",
+                  module: ModuleType.OBSERVATIONS,
+                  title: "Nouvelle observation",
+                });
+              }}
             >
               <Plus className="mr-2 h-4 w-4" />
               Observation
@@ -167,18 +172,6 @@ export function ObservationsModule() {
           <div className="flex h-full items-center justify-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
           </div>
-        ) : showNewObservation ? (
-          <ObservationForm
-            patientId={preselectedPatientId}
-            onSuccess={() => {
-              setShowNewObservation(false);
-              setPreselectedPatientId(undefined);
-            }}
-            onCancel={() => {
-              setShowNewObservation(false);
-              setPreselectedPatientId(undefined);
-            }}
-          />
         ) : view === "group" ? (
           <ConsultationTable consultations={consultations || []} observations={allObservations || []} />
         ) : (

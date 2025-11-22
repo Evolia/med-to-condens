@@ -29,7 +29,6 @@ import {
 } from "@/hooks";
 import { calculateAge, formatDate } from "@/lib/date-utils";
 import { useTabsStore } from "@/stores/tabs-store";
-import { useQuickCreateStore } from "@/stores/quick-create-store";
 import { useAppModule } from "@/components/layout/use-app-module";
 import { PatientForm } from "./patient-form";
 import { TypeObservation, ModuleType } from "@/types";
@@ -56,8 +55,7 @@ export function PatientCard({ patientId }: PatientCardProps) {
   const analyzeMail = useAnalyzeMail();
   const updatePatient = useUpdatePatient();
   const updateObservation = useUpdateObservation();
-  const { removeTab, updateTab } = useTabsStore();
-  const { trigger } = useQuickCreateStore();
+  const { removeTab, updateTab, addTab } = useTabsStore();
   const { setActiveModule } = useAppModule();
 
   // Auto-generate summary on first load if no summary exists and there are observations
@@ -203,11 +201,15 @@ export function PatientCard({ patientId }: PatientCardProps) {
   };
 
   const handleNewObservation = () => {
-    // Switch to Observations module and trigger the form with this patient
+    // Switch to Observations module and create a new tab with patient pre-filled
     setActiveModule(ModuleType.OBSERVATIONS);
-    setTimeout(() => {
-      trigger(ModuleType.OBSERVATIONS, { patientId });
-    }, 50);
+    addTab({
+      id: `new-observation-${Date.now()}`,
+      type: "new",
+      module: ModuleType.OBSERVATIONS,
+      title: "Nouvelle observation",
+      data: { patientId },
+    });
   };
 
   const handleExportPatient = async () => {

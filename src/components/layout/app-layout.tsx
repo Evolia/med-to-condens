@@ -6,7 +6,7 @@ import { GlobalSearch } from "./global-search";
 import { DesktopLayout } from "./desktop-layout";
 import { MobileLayout } from "./mobile-layout";
 import { useDevice } from "@/hooks/use-device";
-import { useTabsStore, useQuickCreateStore } from "@/stores";
+import { useTabsStore } from "@/stores";
 import { ModuleType } from "@/types";
 
 interface AppLayoutProps {
@@ -18,7 +18,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const deviceType = useDevice();
   const { addTab } = useTabsStore();
-  const { trigger } = useQuickCreateStore();
 
   // Handle Cmd+K / Ctrl+K to open search
   useEffect(() => {
@@ -39,20 +38,28 @@ export function AppLayout({ children }: AppLayoutProps) {
       setActiveModule(module);
     }
 
+    // Create a new tab for all modules
     if (module === ModuleType.DOSSIERS) {
-      // For Dossiers, create a new tab
       addTab({
         id: `new-patient-${Date.now()}`,
         type: "new",
         module: ModuleType.DOSSIERS,
         title: "Nouveau dossier",
       });
-    } else {
-      // For Observations and Todos, trigger the store after a small delay
-      // to ensure the module is fully switched
-      setTimeout(() => {
-        trigger(module);
-      }, 50);
+    } else if (module === ModuleType.OBSERVATIONS) {
+      addTab({
+        id: `new-observation-${Date.now()}`,
+        type: "new",
+        module: ModuleType.OBSERVATIONS,
+        title: "Nouvelle observation",
+      });
+    } else if (module === ModuleType.TODOS) {
+      addTab({
+        id: `new-todo-${Date.now()}`,
+        type: "new",
+        module: ModuleType.TODOS,
+        title: "Nouvelle tâche",
+      });
     }
   };
 
