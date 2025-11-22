@@ -64,11 +64,12 @@ export function MainNavigation({
           const isActive = activeModule === module.id;
 
           return (
-            <div key={module.id} className="flex items-center gap-0.5">
+            <div key={module.id} className="flex items-center">
               <button
                 onClick={() => onModuleChange(module.id)}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 rounded-l-md px-3 py-2 text-sm font-medium transition-colors",
+                  onQuickCreate ? "rounded-r-none" : "rounded-md",
                   isActive
                     ? "bg-blue-50 text-blue-700"
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -81,10 +82,10 @@ export function MainNavigation({
                 <button
                   onClick={() => onQuickCreate(module.id)}
                   className={cn(
-                    "flex items-center justify-center w-6 h-6 rounded-md transition-colors",
+                    "flex items-center justify-center h-full px-2 rounded-r-md transition-colors border-l",
                     isActive
-                      ? "text-blue-700 hover:bg-blue-100"
-                      : "text-gray-500 hover:bg-gray-100"
+                      ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                      : "text-gray-500 hover:bg-gray-100 border-gray-200 hover:text-gray-700"
                   )}
                   title={`Créer ${
                     module.id === ModuleType.DOSSIERS
@@ -94,7 +95,7 @@ export function MainNavigation({
                       : "une nouvelle tâche"
                   }`}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
