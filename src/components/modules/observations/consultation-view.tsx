@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag, Download } from "lucide-react";
+import { Plus, Users, FileText, UserPlus, X, Calendar, Edit2, Check, Tag, Download, Trash2 } from "lucide-react";
 import { Button, Input, TagInput } from "@/components/ui";
 import {
   useConsultation,
@@ -45,6 +45,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const [isImporting, setIsImporting] = useState(false);
   const [unmatchedNames, setUnmatchedNames] = useState<string[]>([]);
   const [creatingPatient, setCreatingPatient] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Inline editing states
   const [editingField, setEditingField] = useState<"titre" | "type" | "date" | "tags" | null>(null);
@@ -60,7 +61,7 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
   const createObservation = useCreateObservation();
   const updateConsultation = useUpdateConsultation();
   const deleteConsultation = useDeleteConsultation();
-  const { updateTab } = useTabsStore();
+  const { updateTab, removeTab } = useTabsStore();
   const { data: consultationTags = [] } = useConsultationTags();
 
   // Update observations ref when observations change
@@ -74,11 +75,24 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
       // Cleanup function called when component unmounts
       const currentObservations = observationsRef.current;
       if (currentObservations && currentObservations.length === 0) {
-        // Delete consultation if it has no observations
-        deleteConsultation.mutate(consultationId);
+        // Delete consultation if it has no observations (no need to choose, no observations to delete)
+        deleteConsultation.mutate({ consultationId, deleteObservations: false });
       }
     };
   }, [consultationId]);
+
+  const handleDeleteConsultation = async (deleteObservations: boolean) => {
+    if (window.confirm(
+      deleteObservations
+        ? "Êtes-vous sûr de vouloir supprimer cette consultation ET toutes ses observations ?"
+        : "Êtes-vous sûr de vouloir supprimer cette consultation ? Les observations seront conservées sans groupe."
+    )) {
+      await deleteConsultation.mutateAsync({ consultationId, deleteObservations });
+      // Close the tab after deletion
+      removeTab(`consultation-${consultationId}`);
+      setShowDeleteModal(false);
+    }
+  };
 
   // Handle click outside to auto-save
   useEffect(() => {
@@ -561,6 +575,14 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
               <Download className="mr-2 h-4 w-4" />
               Exporter
             </Button>
+            <Button
+              variant="danger"
+              onClick={() => setShowDeleteModal(true)}
+              title="Supprimer la consultation"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer
+            </Button>
             <Button onClick={() => setShowNewObservation(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Nouvelle observation
@@ -667,6 +689,45 @@ export function ConsultationView({ consultationId }: ConsultationViewProps) {
           <ObservationTable observations={observations || []} showPatient />
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">
+              Supprimer la consultation
+            </h3>
+            <p className="mb-6 text-sm text-gray-600">
+              Cette consultation contient {observations?.length || 0} observation{(observations?.length || 0) !== 1 ? 's' : ''}.
+              <br />
+              Que souhaitez-vous faire ?
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button
+                variant="danger"
+                onClick={() => handleDeleteConsultation(true)}
+                isLoading={deleteConsultation.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer la consultation ET les observations
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => handleDeleteConsultation(false)}
+                isLoading={deleteConsultation.isPending}
+              >
+                Supprimer uniquement la consultation (conserver les observations)
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
