@@ -77,10 +77,15 @@ export function MainNavigation({
                 <Icon className="h-4 w-4" />
                 {module.label}
               </button>
-              {isActive && onQuickCreate && (
+              {onQuickCreate && (
                 <button
                   onClick={() => onQuickCreate(module.id)}
-                  className="flex items-center justify-center w-6 h-6 rounded-md text-blue-700 hover:bg-blue-100 transition-colors"
+                  className={cn(
+                    "flex items-center justify-center w-6 h-6 rounded-md transition-colors",
+                    isActive
+                      ? "text-blue-700 hover:bg-blue-100"
+                      : "text-gray-500 hover:bg-gray-100"
+                  )}
                   title={`Créer ${
                     module.id === ModuleType.DOSSIERS
                       ? "un nouveau dossier"
