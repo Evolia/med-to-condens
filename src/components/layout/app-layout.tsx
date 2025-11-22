@@ -6,6 +6,8 @@ import { GlobalSearch } from "./global-search";
 import { DesktopLayout } from "./desktop-layout";
 import { MobileLayout } from "./mobile-layout";
 import { useDevice } from "@/hooks/use-device";
+import { useTabsStore, useQuickCreateStore } from "@/stores";
+import { ModuleType } from "@/types";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,6 +17,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { activeModule, setActiveModule } = useAppModule();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const deviceType = useDevice();
+  const { addTab } = useTabsStore();
+  const { trigger } = useQuickCreateStore();
 
   // Handle Cmd+K / Ctrl+K to open search
   useEffect(() => {
@@ -29,10 +33,26 @@ export function AppLayout({ children }: AppLayoutProps) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const handleQuickCreate = (module: ModuleType) => {
+    if (module === ModuleType.DOSSIERS) {
+      // For Dossiers, create a new tab
+      addTab({
+        id: `new-patient-${Date.now()}`,
+        type: "new",
+        module: ModuleType.DOSSIERS,
+        title: "Nouveau dossier",
+      });
+    } else {
+      // For Observations and Todos, trigger the store
+      trigger(module);
+    }
+  };
+
   const layoutProps = {
     activeModule,
     onModuleChange: setActiveModule,
     onSearchClick: () => setIsSearchOpen(true),
+    onQuickCreate: handleQuickCreate,
     children,
   };
 

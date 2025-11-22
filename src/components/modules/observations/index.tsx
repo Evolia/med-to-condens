@@ -10,6 +10,7 @@ import {
   useConsultations,
 } from "@/hooks";
 import { useTabsStore } from "@/stores/tabs-store";
+import { useQuickCreateStore } from "@/stores/quick-create-store";
 import { ModuleType } from "@/types";
 import { ObservationTable } from "./observation-table";
 import { ObservationForm } from "./observation-form";
@@ -23,6 +24,7 @@ export function ObservationsModule() {
   const [showNewObservation, setShowNewObservation] = useState(false);
 
   const { tabs, activeTabId, addTab } = useTabsStore();
+  const { triggerModule, clear } = useQuickCreateStore();
   const { data: todayObservations, isLoading: loadingToday } =
     useTodayObservations();
   const { data: allObservations, isLoading: loadingAll } = useObservations();
@@ -43,6 +45,14 @@ export function ObservationsModule() {
       });
     }
   }, [tabs, addTab]);
+
+  // Listen for quick create trigger
+  useEffect(() => {
+    if (triggerModule === ModuleType.OBSERVATIONS) {
+      setShowNewObservation(true);
+      clear();
+    }
+  }, [triggerModule, clear]);
 
   // Check if we have an active tab for this module
   const activeTab = tabs.find(

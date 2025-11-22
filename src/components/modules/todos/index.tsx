@@ -10,6 +10,7 @@ import { TodoForm } from "./todo-form";
 import { WorkSessionView } from "./work-session-view";
 import { WorkSessionsList } from "./work-sessions-list";
 import { useTabsStore } from "@/stores/tabs-store";
+import { useQuickCreateStore } from "@/stores/quick-create-store";
 
 type ViewType = "active" | "completed" | "sessions";
 type GroupByType = "patient" | "type" | "tags";
@@ -275,6 +276,7 @@ export function TodosModule() {
   const [showNewTodo, setShowNewTodo] = useState(false);
 
   const { tabs, activeTabId, addTab } = useTabsStore();
+  const { triggerModule, clear } = useQuickCreateStore();
   const { data: activeTodos, isLoading: loadingActive } = useActiveTodos();
   const { data: completedTodos, isLoading: loadingCompleted } =
     useCompletedTodos();
@@ -293,6 +295,14 @@ export function TodosModule() {
       });
     }
   }, [tabs, addTab]);
+
+  // Listen for quick create trigger
+  useEffect(() => {
+    if (triggerModule === ModuleType.TODOS) {
+      setShowNewTodo(true);
+      clear();
+    }
+  }, [triggerModule, clear]);
 
   const todos = view === "active" ? activeTodos : completedTodos;
   const isLoading = view === "active" ? loadingActive : loadingCompleted;

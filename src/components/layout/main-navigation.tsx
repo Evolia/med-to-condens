@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderOpen, ClipboardList, CheckSquare, LogOut, Search } from "lucide-react";
+import { FolderOpen, ClipboardList, CheckSquare, LogOut, Search, Plus } from "lucide-react";
 import { ModuleType } from "@/types";
 import { cn } from "@/lib/utils";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -10,6 +10,7 @@ interface MainNavigationProps {
   activeModule: ModuleType;
   onModuleChange: (module: ModuleType) => void;
   onSearchClick?: () => void;
+  onQuickCreate?: (module: ModuleType) => void;
 }
 
 const modules = [
@@ -34,6 +35,7 @@ export function MainNavigation({
   activeModule,
   onModuleChange,
   onSearchClick,
+  onQuickCreate,
 }: MainNavigationProps) {
   const router = useRouter();
   const supabase = createBrowserClient();
@@ -62,19 +64,35 @@ export function MainNavigation({
           const isActive = activeModule === module.id;
 
           return (
-            <button
-              key={module.id}
-              onClick={() => onModuleChange(module.id)}
-              className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+            <div key={module.id} className="flex items-center gap-0.5">
+              <button
+                onClick={() => onModuleChange(module.id)}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {module.label}
+              </button>
+              {isActive && onQuickCreate && (
+                <button
+                  onClick={() => onQuickCreate(module.id)}
+                  className="flex items-center justify-center w-6 h-6 rounded-md text-blue-700 hover:bg-blue-100 transition-colors"
+                  title={`Créer ${
+                    module.id === ModuleType.DOSSIERS
+                      ? "un nouveau dossier"
+                      : module.id === ModuleType.OBSERVATIONS
+                      ? "une nouvelle observation"
+                      : "une nouvelle tâche"
+                  }`}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               )}
-            >
-              <Icon className="h-4 w-4" />
-              {module.label}
-            </button>
+            </div>
           );
         })}
       </div>
