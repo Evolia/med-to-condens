@@ -550,7 +550,7 @@ export function PatientList() {
                   }`}
                   title={patient.favoris ? "Retirer des favoris" : "Ajouter aux favoris"}
                 >
-                  <AlertTriangle className="h-4 w-4" fill={patient.favoris ? "currentColor" : "none"} />
+                  <AlertTriangle className="h-4 w-4" fill="none" />
                 </button>
                 <button
                   onClick={() => handlePatientClick(patient)}
@@ -670,7 +670,7 @@ export function PatientList() {
                         }`}
                         title={patient.favoris ? "Retirer des favoris" : "Ajouter aux favoris"}
                       >
-                        <AlertTriangle className="h-4 w-4" fill={patient.favoris ? "currentColor" : "none"} />
+                        <AlertTriangle className="h-4 w-4" fill="none" />
                       </button>
                       <button
                         onClick={(e) => {
