@@ -16,11 +16,14 @@ Application de gestion de dossiers patients et d'observations médicales, conçu
 - **Filtre par secteur** : Recherche par un ou plusieurs tags (avec normalisation des accents)
 - **Recherche globale** : Recherche par nom, prénom ou nom complet
 - **Suppression de dossiers** avec confirmation
+- **Marquage favoris** : Bouton "attention" avec contour rouge pour marquer les dossiers importants
+- **Création rapide d'observations** : Bouton dédié dans chaque fiche patient pour créer directement une observation pré-remplie
 
 ### 📝 Module Observations
 
 - **Création d'observations** pour chaque patient
 - **Types d'observations** : Clinique, Sociale, Psychologique, Familiale, Scolaire, Autre
+- **Sélecteur de consultation autocomplete** : Recherche intelligente par titre, date ou tags lors de l'ajout à un groupe
 - **Import massif de patients** depuis une liste de noms
   - Matching intelligent avec recherche exacte et suggestions de patients similaires
   - Création rapide de nouveaux dossiers pour patients non trouvés
@@ -39,9 +42,12 @@ Application de gestion de dossiers patients et d'observations médicales, conçu
   - Date personnalisable
   - Tags pour catégorisation (badges violets)
 - **Suppression automatique** des consultations vides à la fermeture
+- **Suppression flexible** avec choix modal :
+  - Supprimer uniquement la consultation (observations conservées sans groupe)
+  - Supprimer la consultation et toutes ses observations
 - **Vue tableau compacte** avec :
-  - Tri par colonne (Titre, Date, Type, Tags)
-  - Suppression rapide avec confirmation
+  - Tri par colonne (Titre, Date, Type, Tags, Secteurs)
+  - Filtres avancés par type, secteur, tags et date
   - Édition inline des tags
 - **Import de liste de patients** dans une consultation
 - **Création d'observations** directement depuis la consultation
@@ -55,13 +61,15 @@ Application de gestion de dossiers patients et d'observations médicales, conçu
   - Date d'échéance avec alerte si dépassée
   - Tags multiples (badges violets)
   - Annotations
-- **Groupement intelligent** : Par patient ou par type
+- **Groupement intelligent** : Par patient, par type ou par tags
 - **États** : Actif / Complété
 - **Création depuis observations** : Ajouter plusieurs todos directement lors de la création d'une observation
 
 ### 🎨 Interface & UX
 
-- **Système d'onglets** : Navigation fluide entre différentes vues
+- **Boutons de création rapide** : Boutons "+" intégrés à chaque module dans la navigation pour créer rapidement dossiers, observations et tâches
+- **Système d'onglets** : Navigation fluide entre différentes vues avec ouverture en tabs dédiés
+- **Création contextuelle** : Formulaires de création s'ouvrent dans des onglets dédiés qui se ferment automatiquement après sauvegarde
 - **Auto-save** : Sauvegarde automatique lors de l'édition inline
 - **Badges colorés** :
   - Bleu : Secteur patient
@@ -70,7 +78,7 @@ Application de gestion de dossiers patients et d'observations médicales, conçu
   - Rouge/Orange/Bleu/Vert : Urgence des todos
 - **Normalisation des recherches** : Insensible aux accents et à la casse
 - **Click-outside** : Fermeture automatique des popups et filtres
-- **Confirmation de suppression** : Pour toutes les actions destructives
+- **Confirmation de suppression** : Pour toutes les actions destructives avec choix modal pour les consultations
 
 ## 🛠 Stack Technique
 
