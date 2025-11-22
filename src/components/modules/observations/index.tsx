@@ -22,9 +22,10 @@ type ViewType = "today" | "all" | "group";
 export function ObservationsModule() {
   const [view, setView] = useState<ViewType>("today");
   const [showNewObservation, setShowNewObservation] = useState(false);
+  const [preselectedPatientId, setPreselectedPatientId] = useState<string | undefined>(undefined);
 
   const { tabs, activeTabId, addTab } = useTabsStore();
-  const { triggerModule, clear } = useQuickCreateStore();
+  const { triggerModule, data, clear } = useQuickCreateStore();
   const { data: todayObservations, isLoading: loadingToday } =
     useTodayObservations();
   const { data: allObservations, isLoading: loadingAll } = useObservations();
@@ -49,10 +50,11 @@ export function ObservationsModule() {
   // Listen for quick create trigger
   useEffect(() => {
     if (triggerModule === ModuleType.OBSERVATIONS) {
+      setPreselectedPatientId(data?.patientId);
       setShowNewObservation(true);
       clear();
     }
-  }, [triggerModule, clear]);
+  }, [triggerModule, data, clear]);
 
   // Check if we have an active tab for this module
   const activeTab = tabs.find(
@@ -167,8 +169,15 @@ export function ObservationsModule() {
           </div>
         ) : showNewObservation ? (
           <ObservationForm
-            onSuccess={() => setShowNewObservation(false)}
-            onCancel={() => setShowNewObservation(false)}
+            patientId={preselectedPatientId}
+            onSuccess={() => {
+              setShowNewObservation(false);
+              setPreselectedPatientId(undefined);
+            }}
+            onCancel={() => {
+              setShowNewObservation(false);
+              setPreselectedPatientId(undefined);
+            }}
           />
         ) : view === "group" ? (
           <ConsultationTable consultations={consultations || []} observations={allObservations || []} />
