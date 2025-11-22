@@ -272,7 +272,7 @@ export function ConsultationTable({ consultations, observations = [] }: Consulta
 
   const handleDelete = async (consultationId: string) => {
     if (confirm("Voulez-vous vraiment supprimer cette consultation et toutes ses observations ?")) {
-      await deleteConsultation.mutateAsync(consultationId);
+      await deleteConsultation.mutateAsync({ consultationId, deleteObservations: true });
     }
   };
 
